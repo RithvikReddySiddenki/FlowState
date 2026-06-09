@@ -9,6 +9,14 @@ type Application = {
   current_status: string;
 };
 
+type User = {
+  email: string;
+  name?: string;
+  google_id: string;
+};
+
+const API_BASE_URL = "http://localhost:8000";
+
 const statuses = [
   "Application Received",
   "Under Review",
@@ -21,13 +29,38 @@ const statuses = [
 
 export default function DashboardPage() {
   const [applications, setApplications] = useState<Application[]>([]);
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
   const [company, setCompany] = useState("");
   const [role, setRole] = useState("");
   const [currentStatus, setCurrentStatus] = useState("Application Received");
   const [errorMessage, setErrorMessage] = useState("");
 
+  async function fetchCurrentUser() {
+    const response = await fetch(`${API_BASE_URL}/auth/me`, {
+      credentials: "include",
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch current user");
+    }
+
+    const data = await response.json();
+
+    if (data.authenticated) {
+      setUser(data.user);
+    } else {
+      setUser(null);
+    }
+
+    setAuthLoading(false);
+  }
+
   async function fetchApplications() {
-    const response = await fetch("http://127.0.0.1:8000/applications");
+    const response = await fetch(`${API_BASE_URL}/applications`, {
+      credentials: "include",
+    });
 
     if (!response.ok) {
       throw new Error("Failed to fetch applications");
@@ -38,6 +71,7 @@ export default function DashboardPage() {
   }
 
   useEffect(() => {
+    fetchCurrentUser();
     fetchApplications();
   }, []);
 
@@ -51,8 +85,9 @@ export default function DashboardPage() {
 
     setErrorMessage("");
 
-    const response = await fetch("http://127.0.0.1:8000/applications", {
+    const response = await fetch(`${API_BASE_URL}/applications`, {
       method: "POST",
+      credentials: "include",
       headers: {
         "Content-Type": "application/json",
       },
@@ -75,18 +110,16 @@ export default function DashboardPage() {
   }
 
   async function updateStatus(applicationId: number, newStatus: string) {
-    const response = await fetch(
-      `http://127.0.0.1:8000/applications/${applicationId}`,
-      {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          current_status: newStatus,
-        }),
-      }
-    );
+    const response = await fetch(`${API_BASE_URL}/applications/${applicationId}`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        current_status: newStatus,
+      }),
+    });
 
     if (!response.ok) {
       throw new Error("Failed to update application status");
@@ -96,18 +129,45 @@ export default function DashboardPage() {
   }
 
   async function deleteApplication(applicationId: number) {
-    const response = await fetch(
-      `http://127.0.0.1:8000/applications/${applicationId}`,
-      {
-        method: "DELETE",
-      }
-    );
+    const response = await fetch(`${API_BASE_URL}/applications/${applicationId}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
 
     if (!response.ok) {
       throw new Error("Failed to delete application");
     }
 
     await fetchApplications();
+  }
+
+  async function handleLogout() {
+    const response = await fetch(`${API_BASE_URL}/auth/logout`, {
+      method: "POST",
+      credentials: "include",
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to log out");
+    }
+
+    setUser(null);
+  }
+
+  if (authLoading) {
+    return (
+      <main
+        style={{
+          minHeight: "100vh",
+          background: "#050816",
+          color: "white",
+          padding: "48px",
+          fontFamily: "Arial, sans-serif",
+        }}
+      >
+        <p>Loading...</p>
+      </main>
+    );
   }
 
   return (
@@ -157,6 +217,57 @@ export default function DashboardPage() {
           >
             Add, track, update, and delete your job applications in one place.
           </p>
+
+          <div
+            style={{
+              marginTop: "24px",
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+            }}
+          >
+            {user ? (
+              <>
+                <p
+                  style={{
+                    color: "#cbd5e1",
+                    margin: 0,
+                  }}
+                >
+                  Signed in as <strong>{user.email}</strong>
+                </p>
+
+                <button
+                  onClick={handleLogout}
+                  style={{
+                    padding: "10px 14px",
+                    borderRadius: "10px",
+                    border: "1px solid #334155",
+                    background: "#0f172a",
+                    color: "white",
+                    cursor: "pointer",
+                  }}
+                >
+                  Logout
+                </button>
+              </>
+            ) : (
+              <a
+                href={`${API_BASE_URL}/auth/google/login`}
+                style={{
+                  display: "inline-block",
+                  padding: "12px 16px",
+                  borderRadius: "10px",
+                  background: "white",
+                  color: "#020617",
+                  fontWeight: "bold",
+                  textDecoration: "none",
+                }}
+              >
+                Sign in with Google
+              </a>
+            )}
+          </div>
         </div>
 
         <div
@@ -360,9 +471,7 @@ export default function DashboardPage() {
                 <h3 style={{ color: "white", marginTop: 0 }}>
                   No applications yet
                 </h3>
-                <p>
-                  Add your first application using the form on the left.
-                </p>
+                <p>Add your first application using the form on the left.</p>
               </div>
             ) : (
               <div

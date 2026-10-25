@@ -105,6 +105,10 @@ jobs:
             sleep 3
           done
           exit 1
+      - name: Local HTTPS template and certificate reload
+        run: |
+          python -m pip install cryptography==50.0.0
+          python -m scripts.check_local_tls
       - name: Cleanup synthetic stack
         if: always()
         run: docker compose -p flowstate-validation -f compose.yml -f docker-compose.dev.yml -f compose.validation.yml -f docker-compose.monitoring.yml --profile monitoring down

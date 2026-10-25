@@ -127,3 +127,34 @@ Optional push (22) is implemented/synthetically tested with live prerequisites
 pending. Last pushed implementation commit: 8414370; documentation checkpoint
 follows in git log. No implementation edits remain uncommitted. User .vscode/
 is the only unrelated untracked work. External checkpoints remain above.
+
+## Integration recheck and HTTPS verification
+
+The owner confirmed the Google prerequisites again and requested a fresh check.
+The ignored apps/api/.env contains the required fields; imported backend client
+ID/secret match it without printing values. The live Google authorization redirect
+uses the expected client, state protection and the exact callback
+http://localhost:8000/auth/google/callback. The owner confirmed fresh browser
+login, Gmail connection and dashboard sync succeeded. An independently requested
+real Celery sync completed; no account identifiers/message content/tokens printed.
+
+Read-only diagnostics confirm application PostgreSQL18 at migration0005 and a
+responding worker. Docker Redis7 and PostgreSQL16 are also running; PostgreSQL16
+is separate from the application's existing native PostgreSQL18 database. The
+working DATABASE_URL and user data were preserved.
+
+Added scripts/check_local_integrations.py: safe local config/redirect/schema/
+worker checks, optional explicitly requested single-account real sync, bounded
+wait and sanitized errors. Two synthetic protocol/loopback tests bring the suite
+to49 passing SQLite tests; full PostgreSQL/remote checks run in CI.
+
+Added scripts/check_local_tls.py: a synthetic-project guard, temporary loopback
+Nginx, ignored one-day localhost certificates and container cleanup. Actual
+TLS1.2/1.3, trusted API/frontend routing, redirect, metrics blocking and replacement
+certificate reload passed. CI now runs this test after private monitoring.
+Public certificates, ACME renewal and real HTTPS OAuth remain unverified.
+
+Current work: commit/push diagnostics and local TLS checkpoint; inspect its CI.
+External continuation needs AWS SSO/profile/region for account-specific plans,
+or Vagrant/provider installation for VM provisioning. An async prerequisite
+choice is pending. No resources, domain changes, public exposure or merge approved.

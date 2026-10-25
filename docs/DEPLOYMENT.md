@@ -39,3 +39,12 @@ There is no enabled production auto-deploy or actual server/certificate yet.
 GitHub Actions validates changes only. An eventual deployment workflow should
 use a protected production environment, required reviewers, short-lived
 credentials, least privilege and a reviewed immutable release reference.
+
+Local template verification is available with `python -m scripts.check_local_tls`
+while the synthetic flowstate-validation Compose stack is running. It verifies
+the project's marker before attaching a temporary Nginx container to its network,
+binds only loopback 18443/18480, generates ignored one-day localhost certificates,
+and removes its own container afterward. HTTPS API/frontend routing, redirect,
+metrics isolation, TLS1.2/1.3 and a validated certificate reload passed locally.
+This does not verify a public trust chain, Google HTTPS callback, DNS challenge
+or actual ACME renewal; those remain steps 6-9 above.

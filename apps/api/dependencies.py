@@ -10,7 +10,11 @@ from apps.api.models import AuthSession, User
 
 def current_user(request: Request, database: Session = Depends(get_db)) -> User:
     token = request.session.get("sid")
-    record = database.get(AuthSession, hashlib.sha256(token.encode()).hexdigest()) if isinstance(token, str) else None
+    record = (
+        database.get(AuthSession, hashlib.sha256(token.encode()).hexdigest())
+        if isinstance(token, str)
+        else None
+    )
     expiry = record.expires_at if record else None
     if expiry is not None and expiry.tzinfo is None:
         expiry = expiry.replace(tzinfo=timezone.utc)

@@ -6,21 +6,33 @@ import httpx
 from cryptography.fernet import Fernet
 from sqlalchemy import select
 
-from tests.test_applications import ApiFixture
 from apps.api.gmail_client import GmailClient, GmailFailure
-from apps.api.gmail_client import GMAIL_SCOPE
 from apps.api.ingestion import ingest
-from apps.api.models import Application, ApplicationStatusHistory, GmailMessage, OAuthCredential, SyncRun
-from apps.api.tasks import sync_gmail
+from apps.api.models import (
+    Application,
+    ApplicationStatusHistory,
+    GmailMessage,
+    OAuthCredential,
+    SyncRun,
+)
+from apps.api.tasks import recover_syncs, sync_gmail
 from apps.api.token_store import decrypt, encrypt
+from tests.test_applications import ApiFixture
 
 
 def message(identifier="m1", snippet="Thank you for applying", day=1, role="Engineer"):
-    return {"id": identifier, "threadId": f"thread-{role}",
+    return {
+        "id": identifier,
+        "threadId": f"thread-{role}",
         "internalDate": str(int(datetime(2026, 10, day, tzinfo=timezone.utc).timestamp() * 1000)),
         "snippet": snippet,
-        "payload": {"headers": [{"name": "Subject", "value": f"Application for {role} at Example Labs"},
-                                {"name": "From", "value": "ats@example.test"}]}}
+        "payload": {
+            "headers": [
+                {"name": "Subject", "value": f"Application for {role} at Example Labs"},
+                {"name": "From", "value": "ats@example.test"},
+            ]
+        },
+    }
 
 
 class GmailTests(ApiFixture):
@@ -32,7 +44,13 @@ class GmailTests(ApiFixture):
 
     def credential(self):
         with self.sessions() as database:
-            database.add(OAuthCredential(user_id=1, encrypted_refresh_token=encrypt("synthetic-refresh"), scope="gmail.readonly"))
+            database.add(
+                OAuthCredential(
+                    user_id=1,
+                    encrypted_refresh_token=encrypt("synthetic-refresh"),
+                    scope="gmail.readonly",
+                )
+            )
             database.commit()
 
     def test_encrypted_roundtrip(self):
@@ -42,7 +60,9 @@ class GmailTests(ApiFixture):
 
     def test_duplicates_and_event_order(self):
         with self.sessions() as database:
-            self.assertTrue(ingest(database, 1, message("new", "Interview scheduled with the team", 5)))
+            self.assertTrue(
+                ingest(database, 1, message("new", "Interview scheduled with the team", 5))
+            )
             self.assertFalse(ingest(database, 1, message("new")))
             self.assertTrue(ingest(database, 1, message("old", "We are not moving forward", 2)))
             database.commit()
@@ -71,6 +91,20 @@ class GmailTests(ApiFixture):
             self.assertEqual(len(database.scalars(select(Application)).all()), 3)
             self.assertEqual(len(database.scalars(select(GmailMessage)).all()), 3)
 
+    def test_corrected_identity_in_same_thread_does_not_create_duplicate(self):
+        with self.sessions() as database:
+            ingest(database, 1, message())
+            database.commit()
+            application_id = database.scalar(select(Application.id))
+        self.client.patch(f"/applications/{application_id}", json={"role": "Corrected role"})
+        with self.sessions() as database:
+            ingest(database, 1, message("next", "Interview scheduled with team", 10))
+            database.commit()
+            self.assertEqual(len(database.scalars(select(Application)).all()), 1)
+            row = database.scalar(select(GmailMessage).where(GmailMessage.gmail_id == "next"))
+            self.assertTrue(row.review_required)
+            self.assertIsNone(row.application_id)
+
     def test_unknown_identity_requires_review_without_creating_application(self):
         row = message()
         row["payload"]["headers"][0]["value"] = "Your application"
@@ -83,7 +117,9 @@ class GmailTests(ApiFixture):
     def test_malformed_and_bulk_mail_skipped(self):
         with self.sessions() as database:
             self.assertFalse(ingest(database, 1, {"id": "broken"}))
-            self.assertFalse(ingest(database, 1, message(snippet="Weekly digest: thank you for applying")))
+            self.assertFalse(
+                ingest(database, 1, message(snippet="Weekly digest: thank you for applying"))
+            )
 
     def test_sync_requires_connection(self):
         self.assertEqual(self.client.post("/gmail/sync/start").status_code, 409)
@@ -97,7 +133,9 @@ class GmailTests(ApiFixture):
             self.assertEqual(first.json()["id"], second.json()["id"])
             enqueue.assert_called_once()
         self.sign_in(2)
-        self.assertEqual(self.client.get(f"/gmail/sync/status/{first.json()['id']}").status_code, 404)
+        self.assertEqual(
+            self.client.get(f"/gmail/sync/status/{first.json()['id']}").status_code, 404
+        )
 
     def test_queue_failure_is_persistent_and_retryable(self):
         self.credential()
@@ -114,7 +152,10 @@ class GmailTests(ApiFixture):
             database.commit()
         fake = MagicMock()
         fake.messages.return_value = [message(), message()]
-        with patch("apps.api.tasks.SessionLocal", self.sessions), patch("apps.api.tasks.GmailClient", return_value=fake):
+        with (
+            patch("apps.api.tasks.SessionLocal", self.sessions),
+            patch("apps.api.tasks.GmailClient", return_value=fake),
+        ):
             sync_gmail.run("synthetic-run")
             sync_gmail.run("synthetic-run")
         with self.sessions() as database:
@@ -129,28 +170,70 @@ class GmailTests(ApiFixture):
         with self.sessions() as database:
             database.add(SyncRun(id="bad-run", user_id=1, status="queued"))
             database.commit()
-        with patch("apps.api.tasks.SessionLocal", self.sessions), patch("apps.api.tasks.GmailClient", side_effect=GmailFailure()):
+        with (
+            patch("apps.api.tasks.SessionLocal", self.sessions),
+            patch("apps.api.tasks.GmailClient", side_effect=GmailFailure()),
+        ):
             sync_gmail.run("bad-run")
         with self.sessions() as database:
             self.assertEqual(database.get(SyncRun, "bad-run").status, "failed")
 
     def test_worker_transient_failure_requeues_with_backoff(self):
         from celery.exceptions import Retry
+
         self.credential()
         with self.sessions() as database:
             database.add(SyncRun(id="retry-run", user_id=1, status="queued"))
             database.commit()
-        with patch("apps.api.tasks.SessionLocal", self.sessions), patch("apps.api.tasks.GmailClient", side_effect=GmailFailure(True)), patch.object(sync_gmail, "retry", side_effect=Retry) as retry:
+        with (
+            patch("apps.api.tasks.SessionLocal", self.sessions),
+            patch("apps.api.tasks.GmailClient", side_effect=GmailFailure(True)),
+            patch.object(sync_gmail, "retry", side_effect=Retry) as retry,
+        ):
             with self.assertRaises(Retry):
                 sync_gmail.run("retry-run")
             self.assertEqual(retry.call_args.kwargs["countdown"], 30)
         with self.sessions() as database:
             self.assertEqual(database.get(SyncRun, "retry-run").status, "queued")
 
+    def test_interrupted_sync_is_recovered_and_bounded(self):
+        from datetime import timedelta
+
+        old = datetime.now(timezone.utc) - timedelta(minutes=20)
+        with self.sessions() as database:
+            database.add(SyncRun(id="interrupted", user_id=1, status="running", updated_at=old))
+            database.commit()
+        with (
+            patch("apps.api.tasks.SessionLocal", self.sessions),
+            patch.object(sync_gmail, "apply_async") as enqueue,
+        ):
+            recover_syncs.run()
+            enqueue.assert_called_once()
+            with self.sessions() as database:
+                run = database.get(SyncRun, "interrupted")
+                self.assertEqual(run.status, "queued")
+                self.assertEqual(run.recovery_count, 1)
+                run.updated_at = old
+                run.recovery_count = 3
+                database.commit()
+            recover_syncs.run()
+        with self.sessions() as database:
+            self.assertEqual(database.get(SyncRun, "interrupted").status, "failed")
+
     def test_oauth_callback_creates_revocable_session_without_leaking_token(self):
         from apps.api.main import oauth
-        token = {"userinfo": {"sub": "synthetic-one", "email": "one@example.test", "email_verified": True}}
-        with patch.object(oauth.google, "authorize_access_token", AsyncMock(return_value=token)), patch("apps.api.main.SessionLocal", self.sessions):
+
+        token = {
+            "userinfo": {
+                "sub": "synthetic-one",
+                "email": "one@example.test",
+                "email_verified": True,
+            }
+        }
+        with (
+            patch.object(oauth.google, "authorize_access_token", AsyncMock(return_value=token)),
+            patch("apps.api.main.SessionLocal", self.sessions),
+        ):
             response = self.client.get("/auth/google/callback", follow_redirects=False)
         self.assertEqual(response.status_code, 307)
         self.assertEqual(self.client.get("/auth/me").status_code, 200)
@@ -158,7 +241,14 @@ class GmailTests(ApiFixture):
 
     def test_oauth_unverified_email_rejected(self):
         from apps.api.main import oauth
-        token = {"userinfo": {"sub": "synthetic-one", "email": "one@example.test", "email_verified": False}}
+
+        token = {
+            "userinfo": {
+                "sub": "synthetic-one",
+                "email": "one@example.test",
+                "email_verified": False,
+            }
+        }
         with patch.object(oauth.google, "authorize_access_token", AsyncMock(return_value=token)):
             self.assertEqual(self.client.get("/auth/google/callback").status_code, 400)
 
@@ -172,11 +262,20 @@ class GmailTests(ApiFixture):
             ingest(database, 1, message("review", "We are not moving forward"))
             database.commit()
             source_id = database.scalar(select(GmailMessage.id))
-        response = self.client.patch(f"/gmail/review/{source_id}", json={"application_id": item["id"], "apply_status": True})
+        response = self.client.patch(
+            f"/gmail/review/{source_id}", json={"application_id": item["id"], "apply_status": True}
+        )
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(self.client.get(f"/applications/{item['id']}").json()["current_status"], "Rejected")
+        self.assertEqual(
+            self.client.get(f"/applications/{item['id']}").json()["current_status"], "Rejected"
+        )
         self.sign_in(2)
-        self.assertEqual(self.client.patch(f"/gmail/review/{source_id}", json={"application_id": item["id"]}).status_code, 404)
+        self.assertEqual(
+            self.client.patch(
+                f"/gmail/review/{source_id}", json={"application_id": item["id"]}
+            ).status_code,
+            404,
+        )
 
     def test_gmail_api_pagination_and_metadata_only(self):
         http = MagicMock()

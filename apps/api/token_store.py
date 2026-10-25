@@ -1,4 +1,5 @@
 """Encrypt refresh tokens with an external Fernet key; never log credentials."""
+
 import os
 
 from cryptography.fernet import Fernet

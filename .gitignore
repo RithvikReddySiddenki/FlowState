@@ -157,5 +157,7 @@ __pycache__/
 *.tfvars
 !*.tfvars.example
 backups/
+.tools/
+.ruff_cache/
 *.pem
 *.key

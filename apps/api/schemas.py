@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
+from pydantic import AwareDatetime, BaseModel, ConfigDict, StringConstraints, model_validator
 
 
 class Stage(str, Enum):
@@ -25,7 +25,7 @@ class CreateApplication(BaseModel):
     role: Name
     current_status: Stage = Stage.RECEIVED
     action_required: bool = False
-    deadline: datetime | None = None
+    deadline: AwareDatetime | None = None
 
 
 class UpdateApplication(BaseModel):
@@ -34,7 +34,7 @@ class UpdateApplication(BaseModel):
     role: Name | None = None
     current_status: Stage | None = None
     action_required: bool | None = None
-    deadline: datetime | None = None
+    deadline: AwareDatetime | None = None
 
     @model_validator(mode="after")
     def reject_null_required_fields(self):

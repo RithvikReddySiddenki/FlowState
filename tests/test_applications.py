@@ -1,8 +1,9 @@
 """Synthetic isolated database tests; never load personal Google/DB credentials."""
 
 import base64
-import json
 import hashlib
+import json
+import logging
 import os
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -12,11 +13,14 @@ os.environ["SESSION_SECRET"] = "synthetic-test-secret-" * 3
 os.environ["FRONTEND_URL"] = "http://localhost:3000"
 os.environ["APP_ENV"] = "development"
 
+from uuid import uuid4
+
 from fastapi.testclient import TestClient
 from itsdangerous import TimestampSigner
 from sqlalchemy import create_engine, event, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
+from sqlalchemy.schema import CreateSchema, DropSchema
 
 from apps.api.database import Base, get_db
 from apps.api.main import app
@@ -25,21 +29,42 @@ from apps.api.models import ApplicationStatusHistory, AuthSession, User
 
 class ApiFixture(unittest.TestCase):
     def setUp(self):
-        self.engine = create_engine(
-            "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
-        )
+        logger = logging.getLogger("flowstate")
+        previous_level = logger.level
+        logger.setLevel(logging.WARNING)
+        self.addCleanup(logger.setLevel, previous_level)
+        self.schema = None
+        postgres_url = os.getenv("FLOWSTATE_TEST_DATABASE_URL")
+        if postgres_url:
+            if not postgres_url.startswith("postgresql"):
+                raise ValueError(
+                    "FLOWSTATE_TEST_DATABASE_URL must be a dedicated PostgreSQL test DB"
+                )
+            self.schema = "flowstate_test_" + uuid4().hex
+            self.admin_engine = create_engine(postgres_url)
+            with self.admin_engine.begin() as connection:
+                connection.execute(CreateSchema(self.schema))
+            self.engine = self.admin_engine.execution_options(
+                schema_translate_map={None: self.schema}
+            )
+        else:
+            self.engine = create_engine(
+                "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
+            )
 
-        @event.listens_for(self.engine, "connect")
-        def enforce_foreign_keys(connection, _):
-            connection.execute("PRAGMA foreign_keys=ON")
+            @event.listens_for(self.engine, "connect")
+            def enforce_foreign_keys(connection, _):
+                connection.execute("PRAGMA foreign_keys=ON")
 
         Base.metadata.create_all(self.engine)
         self.sessions = sessionmaker(self.engine)
         with self.sessions() as database:
-            database.add_all([
-                User(id=1, google_id="synthetic-one", email="one@example.test"),
-                User(id=2, google_id="synthetic-two", email="two@example.test"),
-            ])
+            database.add_all(
+                [
+                    User(id=1, google_id="synthetic-one", email="one@example.test"),
+                    User(id=2, google_id="synthetic-two", email="two@example.test"),
+                ]
+            )
             database.commit()
 
         def database_dependency():
@@ -54,16 +79,23 @@ class ApiFixture(unittest.TestCase):
     def tearDown(self):
         self.client.close()
         app.dependency_overrides.clear()
+        if self.schema:
+            assert self.schema.startswith("flowstate_test_")
+            with self.admin_engine.begin() as connection:
+                connection.execute(DropSchema(self.schema, cascade=True))
         self.engine.dispose()
 
     def sign_in(self, user_id):
         token = f"synthetic-session-{user_id}"
         with self.sessions() as database:
             if database.get(User, user_id):
-                database.merge(AuthSession(
-                    token_hash=hashlib.sha256(token.encode()).hexdigest(),
-                    user_id=user_id, expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
-                ))
+                database.merge(
+                    AuthSession(
+                        token_hash=hashlib.sha256(token.encode()).hexdigest(),
+                        user_id=user_id,
+                        expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+                    )
+                )
                 database.commit()
         payload = base64.b64encode(json.dumps({"sid": token}).encode())
         signed = TimestampSigner(os.environ["SESSION_SECRET"]).sign(payload).decode()
@@ -77,7 +109,6 @@ class ApiFixture(unittest.TestCase):
 
 
 class ApplicationTests(ApiFixture):
-
     def test_crud_and_persistence_across_requests(self):
         item = self.create()
         url = f"/applications/{item['id']}"
@@ -103,7 +134,9 @@ class ApplicationTests(ApiFixture):
     def test_anonymous_access_rejected(self):
         self.client.cookies.clear()
         self.assertEqual(self.client.get("/applications").status_code, 401)
-        self.assertEqual(self.client.post("/applications", json={"company": "X", "role": "Y"}).status_code, 401)
+        self.assertEqual(
+            self.client.post("/applications", json={"company": "X", "role": "Y"}).status_code, 401
+        )
         self.assertEqual(self.client.get("/auth/me").status_code, 401)
 
     def test_deleted_user_session_rejected(self):
@@ -119,8 +152,15 @@ class ApplicationTests(ApiFixture):
         ]:
             self.assertEqual(self.client.post("/applications", json=payload).status_code, 422)
         item = self.create()
-        for payload in [{"company": None}, {"role": " "}, {"current_status": None}, {"action_required": None}]:
-            self.assertEqual(self.client.patch(f"/applications/{item['id']}", json=payload).status_code, 422)
+        for payload in [
+            {"company": None},
+            {"role": " "},
+            {"current_status": None},
+            {"action_required": None},
+        ]:
+            self.assertEqual(
+                self.client.patch(f"/applications/{item['id']}", json=payload).status_code, 422
+            )
 
     def test_status_history_does_not_duplicate(self):
         item = self.create()
@@ -135,7 +175,9 @@ class ApplicationTests(ApiFixture):
     def test_action_flag_preserves_stage_and_deadline_can_be_cleared(self):
         item = self.create(current_status="Interview Scheduled")
         url = f"/applications/{item['id']}"
-        response = self.client.patch(url, json={"action_required": True, "deadline": "2026-11-01T12:00:00Z"})
+        response = self.client.patch(
+            url, json={"action_required": True, "deadline": "2026-11-01T12:00:00Z"}
+        )
         self.assertEqual(response.json()["current_status"], "Interview Scheduled")
         self.assertTrue(response.json()["action_required"])
         self.assertEqual(len(self.client.get(url + "/history").json()), 1)
@@ -145,7 +187,9 @@ class ApplicationTests(ApiFixture):
         self.create(company="Beta", current_status="Offer", action_required=True)
         self.create(company="Alpha")
         self.assertEqual(len(self.client.get("/applications?q=beta").json()), 1)
-        self.assertEqual(len(self.client.get("/applications?status=Offer&action_required=true").json()), 1)
+        self.assertEqual(
+            len(self.client.get("/applications?status=Offer&action_required=true").json()), 1
+        )
         results = self.client.get("/applications?sort=company&direction=asc&limit=1").json()
         self.assertEqual(results[0]["company"], "Alpha")
         self.assertEqual(len(self.client.get("/applications?q=%25").json()), 0)
@@ -168,6 +212,12 @@ class ApplicationTests(ApiFixture):
     def test_health_is_public(self):
         self.client.cookies.clear()
         self.assertEqual(self.client.get("/health/live").json(), {"status": "ok"})
+
+    def test_request_logs_omit_query_strings(self):
+        with self.assertLogs("flowstate", level="INFO") as logs:
+            response = self.client.get("/health/live?code=synthetic-private-code")
+        self.assertIn("x-request-id", response.headers)
+        self.assertNotIn("synthetic-private-code", " ".join(logs.output))
 
 
 if __name__ == "__main__":

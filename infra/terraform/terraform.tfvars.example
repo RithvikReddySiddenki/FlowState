@@ -1,0 +1,5 @@
+region            = "us-east-1"
+instance_type     = "t3.small"
+admin_cidr        = "192.0.2.10/32" # Documentation address; replace with approved administrator IP.
+ssh_public_key    = "ssh-ed25519 REPLACE_WITH_YOUR_PUBLIC_KEY"
+enable_public_web = false

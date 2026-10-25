@@ -6,7 +6,7 @@ ignored `apps/api/.env` and configure PostgreSQL and a random session secret.
 Never overwrite an existing environment file. See DATABASE.md before migrations.
 For a fresh empty database run `python -m alembic upgrade head`.
 
-Run `python -m uvicorn apps.api.main:app --reload` and in apps/web run `npm ci`
+Run `python -m uvicorn apps.api.main:app --reload --no-access-log` and in apps/web run `npm ci`
 then `npm run dev`. Optional apps/web/.env.local can set NEXT_PUBLIC_API_URL.
 The default frontend/API addresses are localhost:3000 and localhost:8000.
 Use the same hostname consistently, including the Google redirect URI.

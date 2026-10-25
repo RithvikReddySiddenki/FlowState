@@ -1,7 +1,7 @@
 from alembic import context
 
-from apps.api.database import Base, engine
 from apps.api import models  # noqa: F401 - register metadata
+from apps.api.database import Base, engine
 
 if context.is_offline_mode():
     context.configure(url=str(engine.url), target_metadata=Base.metadata, literal_binds=True)

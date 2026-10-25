@@ -2,13 +2,14 @@
 
 No credential values or pg_dump error output are printed. Never use for prod.
 """
+
 import argparse
 import os
-from datetime import datetime, timezone
-from pathlib import Path
 import shutil
 import subprocess
 import sys
+from datetime import datetime, timezone
+from pathlib import Path
 
 from dotenv import dotenv_values
 from sqlalchemy import create_engine, inspect
@@ -52,23 +53,33 @@ def main():
     backup_dir.mkdir(exist_ok=True)
     destination = backup_dir / f"local-{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}.dump"
     env = os.environ.copy()
-    env.update(PGHOST=url.host, PGPORT=str(url.port or 5432), PGUSER=url.username or "",
-        PGPASSWORD=url.password or "", PGDATABASE=url.database or "")
-    result = subprocess.run([pg_dump, "--format=custom", "--file", str(destination)],
-        env=env, capture_output=True)
+    env.update(
+        PGHOST=url.host,
+        PGPORT=str(url.port or 5432),
+        PGUSER=url.username or "",
+        PGPASSWORD=url.password or "",
+        PGDATABASE=url.database or "",
+    )
+    result = subprocess.run(
+        [pg_dump, "--format=custom", "--file", str(destination)], env=env, capture_output=True
+    )
     if result.returncode or not destination.exists() or not destination.stat().st_size:
         raise RuntimeError("Backup failed; database was not changed")
     destination.chmod(0o600)
     print(f"Backup created: backups/{destination.name} (ignored; never publish)")
     env["DATABASE_URL"] = str(url.render_as_string(hide_password=False))
-    commands = [[sys.executable, "-m", "alembic", "upgrade", "head"],
-                [sys.executable, "-m", "alembic", "check"]]
+    commands = [
+        [sys.executable, "-m", "alembic", "upgrade", "head"],
+        [sys.executable, "-m", "alembic", "check"],
+    ]
     if baseline:
         commands.insert(0, [sys.executable, "-m", "alembic", "stamp", "0001"])
     for command in commands:
         result = subprocess.run(command, cwd=ROOT, env=env, capture_output=True)
         if result.returncode:
-            raise RuntimeError("Migration/check failed. Backup retained; inspect locally without publishing logs.")
+            raise RuntimeError(
+                "Migration/check failed. Backup retained; inspect locally without publishing logs."
+            )
     print("Migration and metadata check passed. Backup retained.")
 
 

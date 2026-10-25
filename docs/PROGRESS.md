@@ -3,6 +3,7 @@
 Updated: 2026-10-24. Branch: feat/flowstate-complete-platform.
 Base commit: 8194059. Initial user change: apps/api/main.py, authorized to extend.
 First increment: ec742c5, pushed to origin/feat/flowstate-complete-platform.
+Gmail increment: a0d607d, pushed to the same feature branch.
 
 ## Baseline verification
 
@@ -20,17 +21,17 @@ First increment: ec742c5, pushed to origin/feat/flowstate-complete-platform.
 
 | # | Milestone | Status | Remaining |
 |---|---|---|---|
-| 1 | Foundation | IN PROGRESS | Migrations, settings, health, full stack startup |
-| 2 | CRUD | IN PROGRESS | Replace dictionary, ownership, history, tests |
+| 1 | Foundation | COMPLETE | Local stack/migrations/health verified; existing legacy DB migration is separately gated |
+| 2 | CRUD | COMPLETE | Actual container-backed browser CRUD plus SQLite/PostgreSQL ownership tests pass |
 | 3 | OAuth | IN PROGRESS | Harden sessions, errors, real Google verification |
 | 4 | Gmail | IN PROGRESS | Implemented metadata polling, encryption, disconnect; live verification pending |
 | 5 | Classification | IN PROGRESS | Rules, matching, provenance and tests implemented; broad real-template validation pending |
 | 6 | Dashboard | IN PROGRESS | Existing basic CRUD UI; most requirements missing |
 | 7 | Workers | IN PROGRESS | Celery, durable runs, retries implemented; real Redis/worker verification pending |
-| 8 | Docker | IMPLEMENTED — UNVERIFIED | Full service configurations; real engine test pending |
-| 9 | Environments | IN PROGRESS | Dev/prod configuration and backup guidance; runtime validation pending |
-| 10 | Terraform EC2 | NOT STARTED | Configuration and validation |
-| 11 | EC2 deployment | NOT STARTED | Automation and approved real deployment |
+| 8 | Docker | COMPLETE | Full local stack, health and persistence across DB container recreation verified |
+| 9 | Environments | COMPLETE | Independent local dev/production-shaped startup verified; public HTTPS remains separate |
+| 10 | Terraform EC2 | IN PROGRESS | fmt/init/validate pass; authenticated plan/approved provisioning pending |
+| 11 | EC2 deployment | IMPLEMENTED — UNVERIFIED | Bootstrap/deploy/backup scripts prepared; no real server deployment |
 | 12 | Nginx/TLS | IN PROGRESS | Proxy prepared; domain/certificate and runtime checks pending |
 | 13 | CI/CD | IN PROGRESS | Checks workflow prepared; remote results/deployment preparation pending |
 | 14 | Hardening | IN PROGRESS | Unit/browser checks and security dependency fixes; full integration pending |
@@ -40,7 +41,7 @@ First increment: ec742c5, pushed to origin/feat/flowstate-complete-platform.
 | 18 | Packer | NOT STARTED | Image configuration and verification |
 | 19 | Kubernetes | NOT STARTED | Manifests and real local verification |
 | 20 | Managed AWS | NOT STARTED | Separate managed-service architecture |
-| 21 | Observability | NOT STARTED | Logs, metrics, dashboards |
+| 21 | Observability | IN PROGRESS | Sanitized structured request logging/IDs; metrics/dashboards remain |
 | 22 | Gmail push | NOT STARTED | Optional watch/history/PubSub architecture |
 
 ## Resume
@@ -64,7 +65,8 @@ validation, history idempotency, origin checks and logout/replayed-cookie
 revocation. Fresh isolated SQLite migration upgrade and Alembic schema check
 pass. Frontend lint, TypeScript and production build pass. No browser tests,
 PostgreSQL runtime, real Google authentication or Docker integration verified.
-Milestones 1–3 and 6 remain IN PROGRESS until their full acceptance criteria pass.
+At that first increment milestones 1–3 and 6 remained IN PROGRESS. Updated
+statuses above reflect later container and browser verification.
 
 Next: classifier, Gmail persistence/encrypted tokens, mocked integration tests,
 then Celery sync. Existing database migration requires inspection and backup;
@@ -91,3 +93,77 @@ applications; only schema and counts inspected, no private user rows displayed.
 Prepared scripts/migrate_local.py: preflight passes without changes; user approval
 for backup/stamp/additive migrations is pending. Docker/Google setup confirmation
 also pending. No live Google access or cloud actions performed.
+
+## Container, infrastructure and reliability increment
+
+Prepared API/non-root frontend Dockerfiles, internal PostgreSQL/Redis networking,
+health checks, persistent volumes, migration service, worker, development mounts
+and production Nginx proxy. Both Compose configurations pass config --quiet.
+Prepared Ubuntu bootstrap, backup-before-deploy script, TLS template and explicit
+deployment/renewal/recovery runbook. Shell scripts pass bash -n; no host deployment
+or public exposure has occurred. Production TLS remains a manual prerequisite.
+
+Downloaded official Terraform 1.17.0 to ignored .tools and verified release
+SHA256. AWS provider 6.70.0 initialized (HashiCorp signed); fmt and validate pass.
+Configuration defaults public web ingress off, restricts SSH to a /32, encrypts
+disk and requires IMDSv2. No AWS plan/apply performed, no resources provisioned.
+Added backend/PostgreSQL/frontend/browser/container/Terraform CI jobs; YAML parses.
+Remote workflow results must be checked after push, not assumed successful.
+
+37 tests now pass both with SQLite and real local PostgreSQL in isolated
+temporary schemas. The original public.users/public.applications tables were
+not migrated or modified; synthetic schemas were removed after each test.
+Added structured request logs without query strings, headers, bodies or SQL
+parameters, plus request ID response headers. Checked no known local environment
+secret occurs in tracked/unignored source. This is an exact-match check, not a
+full-history entropy scan. Legacy migration approval remains pending.
+
+## Current handoff
+
+Current branch: feat/flowstate-complete-platform. Last successful pushed commit:
+a0d607d. Pending coherent increment: container/CI/Terraform/deployment/docs plus
+request logging and matching-concurrency fixes. No user work was discarded.
+Next exact step: commit/push that validated increment, inspect CI, complete any
+required fixes, then perform approved local migration and live container/Google
+verification when the user confirms prerequisites. TOKEN_ENCRYPTION_KEY is
+missing locally and must be generated/stored securely before Gmail connect.
+Advanced milestones 16–20/22 remain deferred until the core runtime is verified,
+as required by the roadmap. See MANUAL_STEPS.md for pending user actions.
+
+## Actual container verification (subsequent to the initial blockers)
+
+Docker engine became available. Both isolated projects flowstate-validation and
+flowstate-prod-validation built/started and all persistent services became
+healthy. Synthetic overrides exclude local Google environment files entirely.
+The dev project uses loopback 13000/18000; production-shaped Nginx uses 18080.
+Production image build, nginx -t, frontend/API proxy routes, authenticated HTTP
+CRUD/history and migration metadata checks passed. Seeded PostgreSQL records
+survived database container recreation without deleting a volume.
+
+Two additional Playwright tests passed against real frontend/API/PostgreSQL
+containers on desktop and mobile, without HTTP route mocking. Real Redis/Celery
+delivery persisted a missing-credential failure. A dedicated test-only Celery
+process with synthetic Gmail adapter successfully imported metadata and verified
+ordering/deduplication through the real queue and database. That process shut
+itself down; no real Google account was accessed. Screenshots are real UI with
+synthetic test data, explicitly labeled in README.
+
+Ruff lint/format checks and 37 SQLite tests pass after formatting. PostgreSQL
+suite previously passed the same 37 tests before formatting; rerun if behavior
+changes. Python runtime dependency audit found advisories in anyio, certifi,
+cryptography and Starlette. Applied targeted fixes (4.14.2, 2026.10.19, 50.0.0,
+1.3.1); pip check passes and pip-audit reports no known vulnerabilities. Public
+TLS, live Google consent/sync, native legacy DB migration and AWS plan/deployment
+remain pending. Advanced monitoring/infrastructure remain incomplete; do not mark
+the entire project done.
+
+Added revision 0004 and a single Celery Beat scheduler for bounded recovery of
+stale queued/running jobs, including lost publication and worker interruptions.
+Recovery requeues after a 15-minute heartbeat window, up to three times, then
+fails the run visibly. Storage retries use sanitized exceptions. 38 tests pass
+with both SQLite and PostgreSQL after the security/recovery changes. Fresh
+SQLite migration/metadata check passes. Updated development HTTP smoke, real queue
+failure/success/recovery checks, desktop/mobile live browser tests and both
+development/production-shaped stack health pass after the changes. Container
+replacement exposed stale Nginx DNS; added dynamic Docker DNS upstream resolution
+and verified nginx -t, reload, proxy routing and all-services health afterward.

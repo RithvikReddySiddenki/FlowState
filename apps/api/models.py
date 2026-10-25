@@ -1,6 +1,17 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint, text
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from apps.api.database import Base
@@ -45,7 +56,8 @@ class Application(Base):
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
 
@@ -60,7 +72,9 @@ class ApplicationStatusHistory(Base):
     previous_status: Mapped[str | None] = mapped_column(String(100))
     current_status: Mapped[str] = mapped_column(String(100))
     source: Mapped[str] = mapped_column(String(30), default="manual")
-    source_message_id: Mapped[int | None] = mapped_column(ForeignKey("gmail_messages.id", ondelete="SET NULL"))
+    source_message_id: Mapped[int | None] = mapped_column(
+        ForeignKey("gmail_messages.id", ondelete="SET NULL")
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
@@ -87,7 +101,9 @@ class GmailMessage(Base):
     __table_args__ = (UniqueConstraint("user_id", "gmail_id", name="uq_gmail_message_owner"),)
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
-    application_id: Mapped[int | None] = mapped_column(ForeignKey("applications.id", ondelete="SET NULL"), index=True)
+    application_id: Mapped[int | None] = mapped_column(
+        ForeignKey("applications.id", ondelete="SET NULL"), index=True
+    )
     gmail_id: Mapped[str] = mapped_column(String(255))
     thread_id: Mapped[str] = mapped_column(String(255), index=True)
     subject: Mapped[str] = mapped_column(String(1000))
@@ -102,15 +118,29 @@ class GmailMessage(Base):
 
 class SyncRun(Base):
     __tablename__ = "sync_runs"
-    __table_args__ = (Index("uq_sync_active_owner", "user_id", unique=True,
-        postgresql_where=text("status IN ('queued', 'running')"),
-        sqlite_where=text("status IN ('queued', 'running')")),)
+    __table_args__ = (
+        Index(
+            "uq_sync_active_owner",
+            "user_id",
+            unique=True,
+            postgresql_where=text("status IN ('queued', 'running')"),
+            sqlite_where=text("status IN ('queued', 'running')"),
+        ),
+    )
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     status: Mapped[str] = mapped_column(String(20), default="queued")
     processed: Mapped[int] = mapped_column(Integer, default=0)
     imported: Mapped[int] = mapped_column(Integer, default=0)
+    recovery_count: Mapped[int] = mapped_column(Integer, default=0)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        index=True,
+    )
     error: Mapped[str | None] = mapped_column(String(255))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-

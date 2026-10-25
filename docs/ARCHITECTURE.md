@@ -15,7 +15,7 @@ flowchart LR
   API --> Google[Google OIDC]
 ```
 
-Planned (not yet operational):
+Implemented code/configuration (complete runtime verification still pending):
 
 ```mermaid
 flowchart LR

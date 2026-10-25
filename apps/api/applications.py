@@ -8,16 +8,21 @@ from apps.api.database import get_db
 from apps.api.dependencies import current_user
 from apps.api.models import Application, ApplicationStatusHistory, GmailMessage, User
 from apps.api.schemas import (
-    ApplicationResponse, CreateApplication, HistoryResponse, Stage, UpdateApplication,
+    ApplicationResponse,
+    CreateApplication,
+    HistoryResponse,
+    Stage,
+    UpdateApplication,
 )
 
 router = APIRouter(prefix="/applications", tags=["applications"])
 
 
-def owned(database: Session, user: User, application_id: int) -> Application:
-    application = database.scalar(select(Application).where(
+def owned(database: Session, user: User, application_id: int, *, lock: bool = False) -> Application:
+    query = select(Application).where(
         Application.id == application_id, Application.user_id == user.id
-    ))
+    )
+    application = database.scalar(query.with_for_update() if lock else query)
     if application is None:
         raise HTTPException(404, "Application not found")
     return application
@@ -32,16 +37,19 @@ def list_applications(
     direction: str = Query("desc", pattern="^(asc|desc)$"),
     offset: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
-    database: Session = Depends(get_db), user: User = Depends(current_user),
+    database: Session = Depends(get_db),
+    user: User = Depends(current_user),
 ):
     query = select(Application).where(Application.user_id == user.id)
     if q.strip():
         # Escape LIKE metacharacters so search terms are literal substrings.
         value = q.strip().lower().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-        query = query.where(or_(
-            func.lower(Application.company).like(f"%{value}%", escape="\\"),
-            func.lower(Application.role).like(f"%{value}%", escape="\\"),
-        ))
+        query = query.where(
+            or_(
+                func.lower(Application.company).like(f"%{value}%", escape="\\"),
+                func.lower(Application.role).like(f"%{value}%", escape="\\"),
+            )
+        )
     if status is not None:
         query = query.where(Application.current_status == status.value)
     if action_required is not None:
@@ -53,16 +61,20 @@ def list_applications(
 
 @router.post("", response_model=ApplicationResponse, status_code=201)
 def create_application(
-    payload: CreateApplication, database: Session = Depends(get_db),
+    payload: CreateApplication,
+    database: Session = Depends(get_db),
     user: User = Depends(current_user),
 ):
     application = Application(user_id=user.id, manual_status_locked=True, **payload.model_dump())
     database.add(application)
     database.flush()
-    database.add(ApplicationStatusHistory(
-        application_id=application.id, current_status=payload.current_status.value,
-        source="manual",
-    ))
+    database.add(
+        ApplicationStatusHistory(
+            application_id=application.id,
+            current_status=payload.current_status.value,
+            source="manual",
+        )
+    )
     database.commit()
     database.refresh(application)
     return application
@@ -70,7 +82,8 @@ def create_application(
 
 @router.get("/{application_id}", response_model=ApplicationResponse)
 def get_application(
-    application_id: int, database: Session = Depends(get_db),
+    application_id: int,
+    database: Session = Depends(get_db),
     user: User = Depends(current_user),
 ):
     return owned(database, user, application_id)
@@ -78,30 +91,39 @@ def get_application(
 
 @router.get("/{application_id}/history", response_model=list[HistoryResponse])
 def get_history(
-    application_id: int, database: Session = Depends(get_db),
+    application_id: int,
+    database: Session = Depends(get_db),
     user: User = Depends(current_user),
 ):
     application = owned(database, user, application_id)
-    return database.scalars(select(ApplicationStatusHistory).where(
-        ApplicationStatusHistory.application_id == application.id
-    ).order_by(ApplicationStatusHistory.created_at, ApplicationStatusHistory.id)).all()
+    return database.scalars(
+        select(ApplicationStatusHistory)
+        .where(ApplicationStatusHistory.application_id == application.id)
+        .order_by(ApplicationStatusHistory.created_at, ApplicationStatusHistory.id)
+    ).all()
 
 
 @router.patch("/{application_id}", response_model=ApplicationResponse)
 def update_application(
-    application_id: int, payload: UpdateApplication,
-    database: Session = Depends(get_db), user: User = Depends(current_user),
+    application_id: int,
+    payload: UpdateApplication,
+    database: Session = Depends(get_db),
+    user: User = Depends(current_user),
 ):
-    application = owned(database, user, application_id)
+    application = owned(database, user, application_id, lock=True)
     changes = payload.model_dump(exclude_unset=True)
     new_status = changes.get("current_status")
-    if new_status is not None:
+    if any(field in changes for field in ("current_status", "action_required", "deadline")):
         application.manual_status_locked = True
     if new_status is not None and new_status != application.current_status:
-        database.add(ApplicationStatusHistory(
-            application_id=application.id, previous_status=application.current_status,
-            current_status=new_status.value, source="manual",
-        ))
+        database.add(
+            ApplicationStatusHistory(
+                application_id=application.id,
+                previous_status=application.current_status,
+                current_status=new_status.value,
+                source="manual",
+            )
+        )
     for field, value in changes.items():
         setattr(application, field, value)
     database.commit()
@@ -111,15 +133,20 @@ def update_application(
 
 @router.delete("/{application_id}", status_code=204)
 def delete_application(
-    application_id: int, database: Session = Depends(get_db),
+    application_id: int,
+    database: Session = Depends(get_db),
     user: User = Depends(current_user),
 ):
-    application = owned(database, user, application_id)
+    application = owned(database, user, application_id, lock=True)
     # Keep messages as reviewable provenance after an application is removed.
-    database.query(GmailMessage).filter(GmailMessage.application_id == application.id).update({"application_id": None, "review_required": True})
-    database.execute(delete(ApplicationStatusHistory).where(
-        ApplicationStatusHistory.application_id == application.id
-    ))
+    database.query(GmailMessage).filter(GmailMessage.application_id == application.id).update(
+        {"application_id": None, "review_required": True}
+    )
+    database.execute(
+        delete(ApplicationStatusHistory).where(
+            ApplicationStatusHistory.application_id == application.id
+        )
+    )
     database.delete(application)
     database.commit()
     return Response(status_code=204)

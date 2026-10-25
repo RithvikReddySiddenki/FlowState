@@ -1,0 +1,46 @@
+# Review and substitute DOMAIN using envsubst '$DOMAIN' only (preserve Nginx vars).
+# Mount reviewed certificates at /etc/letsencrypt, then nginx -t before reload.
+resolver 127.0.0.11 valid=10s ipv6=off;
+upstream flowstate_api {
+    zone flowstate_api 64k;
+    server api:8000 resolve;
+}
+upstream flowstate_web {
+    zone flowstate_web 64k;
+    server web:3000 resolve;
+}
+server {
+    listen 80;
+    server_name ${DOMAIN};
+    access_log off;
+    location /.well-known/acme-challenge/ { root /var/www/certbot; }
+    location / { return 308 https://$host$request_uri; }
+}
+server {
+    listen 443 ssl;
+    server_name ${DOMAIN};
+    access_log off;
+    server_tokens off;
+    ssl_certificate /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    client_max_body_size 1m;
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-Frame-Options DENY always;
+    add_header Referrer-Policy strict-origin-when-cross-origin always;
+    location /api/ {
+        proxy_pass http://flowstate_api/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_read_timeout 60s;
+        proxy_connect_timeout 5s;
+    }
+    location = /api { return 308 /api/; }
+    location / {
+        proxy_pass http://flowstate_web;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-For $remote_addr;
+    }
+}

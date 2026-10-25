@@ -1,0 +1,22 @@
+# Isolated production startup/proxy check; no real Google settings or public ports.
+services:
+  migrate:
+    env_file: !reset []
+  api:
+    env_file: !reset []
+    environment:
+      SESSION_SECRET: synthetic-production-startup-validation-secret
+      FRONTEND_URL: https://localhost
+      GOOGLE_CLIENT_ID: ""
+      GOOGLE_CLIENT_SECRET: ""
+      GOOGLE_REDIRECT_URI: ""
+  worker:
+    env_file: !reset []
+    environment:
+      SESSION_SECRET: synthetic-production-startup-validation-secret
+  scheduler:
+    env_file: !reset []
+    environment:
+      SESSION_SECRET: synthetic-production-startup-validation-secret
+  nginx:
+    ports: !override ["127.0.0.1:18080:80"]

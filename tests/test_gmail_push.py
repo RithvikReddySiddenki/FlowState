@@ -65,9 +65,12 @@ class PushTests(ApiFixture):
             patch("apps.api.gmail_push.verify_push"),
             patch.object(sync_gmail, "apply_async") as queue,
         ):
-            for _ in range(2):
+            for index in range(2):
+                notification = self.notification()
+                if index:
+                    notification["message"]["data"] = notification["message"]["data"].rstrip("=")
                 self.assertEqual(
-                    self.client.post("/gmail/push", json=self.notification()).status_code, 204
+                    self.client.post("/gmail/push", json=notification).status_code, 204
                 )
             queue.assert_called_once()
             with self.sessions() as database:

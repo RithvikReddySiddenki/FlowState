@@ -81,7 +81,11 @@ async def receive_push(request: Request, database: Session = Depends(get_db)):
         if envelope.get("subscription") != os.environ["GMAIL_PUSH_SUBSCRIPTION"]:
             raise ValueError("Unexpected subscription")
         encoded = envelope["message"]["data"]
-        payload = json.loads(base64.b64decode(encoded, validate=True))
+        if not isinstance(encoded, str):
+            raise ValueError("Invalid encoded data")
+        payload = json.loads(
+            base64.b64decode(encoded + "=" * (-len(encoded) % 4), altchars=b"-_", validate=True)
+        )
         email = payload["emailAddress"]
         history_id = str(payload["historyId"])
         if (

@@ -62,4 +62,5 @@ class HistoryResponse(BaseModel):
     previous_status: str | None
     current_status: str
     source: str
+    source_message_id: int | None
     created_at: datetime

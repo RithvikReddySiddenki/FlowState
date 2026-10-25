@@ -1,0 +1,76 @@
+import os
+from datetime import datetime, timezone
+
+import httpx
+from celery import Celery
+from sqlalchemy import select, update
+
+from apps.api.database import SessionLocal
+from apps.api.gmail_client import GmailClient, GmailFailure
+from apps.api.ingestion import ingest
+from apps.api.models import OAuthCredential, SyncRun
+
+celery = Celery("flowstate", broker=os.getenv("REDIS_URL", "redis://localhost:6379/0"))
+celery.conf.update(task_ignore_result=True, task_serializer="json", accept_content=["json"],
+    task_acks_late=True, task_reject_on_worker_lost=True, worker_prefetch_multiplier=1,
+    task_soft_time_limit=540, task_time_limit=600, broker_connection_retry_on_startup=True)
+
+
+@celery.task(bind=True, max_retries=4, name="flowstate.gmail_sync")
+def sync_gmail(self, run_id: str):
+    with SessionLocal() as database:
+        # Atomic claim makes duplicate delivery harmless.
+        claimed = database.execute(update(SyncRun).where(
+            SyncRun.id == run_id, SyncRun.status == "queued"
+        ).values(status="running"))
+        database.commit()
+        if not claimed.rowcount:
+            return
+        run = database.get(SyncRun, run_id)
+        user_id = run.user_id
+        started = datetime.now(timezone.utc)
+        client = None
+        try:
+            credential = database.get(OAuthCredential, user_id)
+            if credential is None:
+                raise GmailFailure()
+            client = GmailClient(credential.encrypted_refresh_token,
+                os.getenv("GOOGLE_CLIENT_ID", ""), os.getenv("GOOGLE_CLIENT_SECRET", ""))
+            for message in client.messages(credential.last_synced_at):
+                # A disconnect deletes the run. Never recreate deleted user data.
+                database.expire_all()
+                run = database.scalar(select(SyncRun).where(SyncRun.id == run_id).with_for_update())
+                if run is None:
+                    database.rollback()
+                    return
+                imported = ingest(database, user_id, message)
+                run.processed += 1
+                run.imported += int(imported)
+                database.commit()
+            database.expire_all()
+            run = database.get(SyncRun, run_id)
+            credential = database.get(OAuthCredential, user_id)
+            if run is None or credential is None:
+                return
+            credential.last_synced_at = started
+            run.status = "completed"
+            run.error = None
+            run.finished_at = datetime.now(timezone.utc)
+            database.commit()
+        except Exception as error:
+            database.rollback()
+            run = database.get(SyncRun, run_id)
+            if run is None:
+                return
+            retryable = isinstance(error, (httpx.TransportError,)) or isinstance(error, GmailFailure) and error.retryable
+            retry = retryable and self.request.retries < self.max_retries
+            run.status = "queued" if retry else "failed"
+            run.error = "Temporary Gmail failure; retrying" if retry else "Sync failed. Retry or reconnect Gmail."
+            if not retry:
+                run.finished_at = datetime.now(timezone.utc)
+            database.commit()
+            if retry:
+                raise self.retry(exc=GmailFailure(True), countdown=min(30 * 2 ** self.request.retries, 480))
+        finally:
+            if client:
+                client.close()

@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api, ApiError, API_BASE_URL } from "@/lib/api";
+import { GmailPanel, MessageDetail, type Message } from "./gmail-panel";
 
 type Application = {
   id: number; company: string; role: string; current_status: string;
@@ -24,6 +25,7 @@ export default function DashboardPage() {
   const [editing, setEditing] = useState<number | null>(null);
   const [selected, setSelected] = useState<Application | null>(null);
   const [history, setHistory] = useState<History[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
   const [sort, setSort] = useState("updated");
@@ -52,7 +54,7 @@ export default function DashboardPage() {
     return () => controller.abort();
   }, []);
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     const rows: Application[] = [];
     for (let offset = 0; ; offset += 500) {
       const page = await api<Application[]>(`/applications?limit=500&offset=${offset}`);
@@ -60,7 +62,7 @@ export default function DashboardPage() {
       if (page.length < 500) break;
     }
     setApplications(rows);
-  }
+  }, []);
 
   async function perform(action: () => Promise<void>) {
     setBusy(true); setError("");
@@ -97,6 +99,7 @@ export default function DashboardPage() {
           })}>Sign out</button></div>
       </header>
       {error && <div role="alert" className="mb-6 rounded-lg border border-rose-400 bg-rose-950 p-4">{error}</div>}
+      <GmailPanel applications={applications} onSynced={refresh} />
       <section aria-label="Application metrics" className="mb-8 grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">
         {["Total", ...stages, "Action Required"].map(label => <div key={label} className="rounded-xl border border-slate-800 bg-slate-900 p-4">
           <p className="text-xs text-slate-400">{label}</p><p className="mt-2 text-3xl font-semibold">{label === "Total" ? applications.length : applications.filter(a => label === "Action Required" ? a.action_required : a.current_status === label).length}</p>
@@ -138,7 +141,7 @@ export default function DashboardPage() {
                 window.scrollTo({ top: 0, behavior: "smooth" });
               }}>Edit</button>
               <button disabled={busy} className="text-cyan-300 underline" onClick={() => void perform(async () => {
-                const rows = await api<History[]>(`/applications/${a.id}/history`); setHistory(rows); setSelected(a);
+                const [rows, sources] = await Promise.all([api<History[]>(`/applications/${a.id}/history`), api<Message[]>(`/applications/${a.id}/messages`)]); setHistory(rows); setMessages(sources); setSelected(a);
               })}>View history</button>
               <button disabled={busy} className="text-rose-300 underline" onClick={() => {
                 if (window.confirm(`Delete ${a.company} — ${a.role}? This also deletes its history.`)) void perform(async () => {
@@ -150,6 +153,9 @@ export default function DashboardPage() {
           {selected && <section className="mt-6 rounded-xl border border-cyan-700 p-5" aria-label="Status history">
             <div className="flex justify-between gap-4"><h2 className="text-xl font-semibold">{selected.company} · History</h2><button className="underline" onClick={() => setSelected(null)}>Close</button></div>
             <ol className="mt-4 space-y-3">{history.map(h => <li key={h.id}><strong>{h.current_status}</strong><p className="text-sm text-slate-400">{new Date(h.created_at).toLocaleString()} · {h.source}</p></li>)}</ol>
+            <h3 className="mt-6 font-semibold">Source messages</h3>
+            {!messages.length && <p className="text-sm text-slate-400">No associated Gmail messages.</p>}
+            <div className="mt-3 space-y-4">{messages.map(message => <MessageDetail key={message.id} message={message} />)}</div>
           </section>}
         </section>
       </div>

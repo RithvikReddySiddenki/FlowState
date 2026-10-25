@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from apps.api.database import get_db
 from apps.api.dependencies import current_user
-from apps.api.models import Application, ApplicationStatusHistory, User
+from apps.api.models import Application, ApplicationStatusHistory, GmailMessage, User
 from apps.api.schemas import (
     ApplicationResponse, CreateApplication, HistoryResponse, Stage, UpdateApplication,
 )
@@ -56,7 +56,7 @@ def create_application(
     payload: CreateApplication, database: Session = Depends(get_db),
     user: User = Depends(current_user),
 ):
-    application = Application(user_id=user.id, **payload.model_dump())
+    application = Application(user_id=user.id, manual_status_locked=True, **payload.model_dump())
     database.add(application)
     database.flush()
     database.add(ApplicationStatusHistory(
@@ -95,6 +95,8 @@ def update_application(
     application = owned(database, user, application_id)
     changes = payload.model_dump(exclude_unset=True)
     new_status = changes.get("current_status")
+    if new_status is not None:
+        application.manual_status_locked = True
     if new_status is not None and new_status != application.current_status:
         database.add(ApplicationStatusHistory(
             application_id=application.id, previous_status=application.current_status,
@@ -113,6 +115,8 @@ def delete_application(
     user: User = Depends(current_user),
 ):
     application = owned(database, user, application_id)
+    # Keep messages as reviewable provenance after an application is removed.
+    database.query(GmailMessage).filter(GmailMessage.application_id == application.id).update({"application_id": None, "review_required": True})
     database.execute(delete(ApplicationStatusHistory).where(
         ApplicationStatusHistory.application_id == application.id
     ))

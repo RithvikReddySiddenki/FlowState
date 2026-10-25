@@ -156,5 +156,6 @@ __pycache__/
 .terraform/
 *.tfvars
 !*.tfvars.example
+backups/
 *.pem
 *.key

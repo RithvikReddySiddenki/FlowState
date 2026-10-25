@@ -23,7 +23,7 @@ from apps.api.main import app
 from apps.api.models import ApplicationStatusHistory, AuthSession, User
 
 
-class ApplicationTests(unittest.TestCase):
+class ApiFixture(unittest.TestCase):
     def setUp(self):
         self.engine = create_engine(
             "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
@@ -74,6 +74,9 @@ class ApplicationTests(unittest.TestCase):
         response = self.client.post("/applications", json=payload)
         self.assertEqual(response.status_code, 201, response.text)
         return response.json()
+
+
+class ApplicationTests(ApiFixture):
 
     def test_crud_and_persistence_across_requests(self):
         item = self.create()

@@ -1,0 +1,69 @@
+import { test, expect } from "@playwright/test";
+
+// Browser tests use synthetic API fixtures. These are frontend workflow tests,
+// not a claim of real Google or full backend integration verification.
+test.beforeEach(async ({ page }) => {
+  let applications = [{ id: 1, company: "Example Labs", role: "Engineer", current_status: "Under Review", action_required: false, deadline: null, updated_at: "2026-10-24T12:00:00Z" }];
+  let authenticated = true;
+  await page.route("http://localhost:8000/**", async route => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+    let body: unknown = {};
+    let status = 200;
+    if (path === "/auth/me") { body = authenticated ? { user: { email: "demo@example.test" } } : { detail: "Sign in" }; status = authenticated ? 200 : 401; }
+    else if (path === "/auth/logout") { authenticated = false; }
+    else if (path === "/gmail/connection") body = { connected: false, last_synced_at: null, latest_run: null };
+    else if (path === "/gmail/review") body = [];
+    else if (path.endsWith("/history")) body = [{ id: 1, current_status: "Under Review", source: "manual", created_at: "2026-10-24T12:00:00Z" }];
+    else if (path.endsWith("/messages")) body = [];
+    else if (path === "/applications" && request.method() === "GET") body = applications;
+    else if (path === "/applications" && request.method() === "POST") {
+      const item = { ...request.postDataJSON(), id: applications.length + 1, updated_at: new Date().toISOString() };
+      applications.push(item); body = item; status = 201;
+    } else if (/^\/applications\/\d+$/.test(path)) {
+      const id = Number(path.split("/").pop());
+      if (request.method() === "DELETE") { applications = applications.filter(a => a.id !== id); status = 204; }
+      else { applications = applications.map(a => a.id === id ? { ...a, ...request.postDataJSON() } : a); body = applications.find(a => a.id === id); }
+    } else { status = 404; body = { detail: "Unknown fixture route" }; }
+    await route.fulfill({ status, contentType: "application/json", body: status === 204 ? "" : JSON.stringify(body) });
+  });
+});
+
+test("create, edit, search, history, delete and logout", async ({ page }) => {
+  await page.goto("/dashboard");
+  await expect(page.getByText("demo@example.test")).toBeVisible();
+  await page.getByLabel("Company", { exact: true }).fill("Synthetic Studio");
+  await page.getByLabel("Role", { exact: true }).fill("Designer");
+  await page.getByRole("button", { name: "Add application", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Synthetic Studio", exact: true })).toBeVisible();
+  const card = page.getByRole("article").filter({ hasText: "Synthetic Studio" });
+  await card.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.getByLabel("Role", { exact: true }).fill("Lead Designer");
+  await page.getByLabel("Action required", { exact: true }).check();
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(card.getByText("Lead Designer")).toBeVisible();
+  await page.getByLabel("Search", { exact: true }).fill("Synthetic");
+  await expect(page.getByRole("article")).toHaveCount(1);
+  await card.getByRole("button", { name: "View history" }).click();
+  await expect(page.getByRole("region", { name: "Status history" })).toBeVisible();
+  page.once("dialog", dialog => dialog.accept());
+  await card.getByRole("button", { name: "Delete", exact: true }).click();
+  await expect(page.getByRole("article")).toHaveCount(0);
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page.getByRole("link", { name: "Sign in with Google" })).toBeVisible();
+});
+
+test("renders a responsive synthetic dashboard", async ({ page }, testInfo) => {
+  await page.goto("/dashboard");
+  await expect(page.getByRole("heading", { name: "Application workspace" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Connect Gmail" })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
+  await page.screenshot({ path: testInfo.outputPath("synthetic-dashboard.png"), fullPage: true });
+});
+
+test("unauthenticated users see sign in instead of private data", async ({ page }) => {
+  await page.route("http://localhost:8000/auth/me", route => route.fulfill({ status: 401, json: { detail: "Sign in" } }));
+  await page.goto("/dashboard");
+  await expect(page.getByRole("link", { name: "Sign in with Google" })).toBeVisible();
+  await expect(page.getByRole("article")).toHaveCount(0);
+});

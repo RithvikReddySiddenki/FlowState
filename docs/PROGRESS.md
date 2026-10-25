@@ -2,6 +2,7 @@
 
 Updated: 2026-10-24. Branch: feat/flowstate-complete-platform.
 Base commit: 8194059. Initial user change: apps/api/main.py, authorized to extend.
+First increment: ec742c5, pushed to origin/feat/flowstate-complete-platform.
 
 ## Baseline verification
 
@@ -22,17 +23,17 @@ Base commit: 8194059. Initial user change: apps/api/main.py, authorized to exten
 | 1 | Foundation | IN PROGRESS | Migrations, settings, health, full stack startup |
 | 2 | CRUD | IN PROGRESS | Replace dictionary, ownership, history, tests |
 | 3 | OAuth | IN PROGRESS | Harden sessions, errors, real Google verification |
-| 4 | Gmail | NOT STARTED | Entire integration |
-| 5 | Classification | NOT STARTED | Rules, matching, provenance, tests |
+| 4 | Gmail | IN PROGRESS | Implemented metadata polling, encryption, disconnect; live verification pending |
+| 5 | Classification | IN PROGRESS | Rules, matching, provenance and tests implemented; broad real-template validation pending |
 | 6 | Dashboard | IN PROGRESS | Existing basic CRUD UI; most requirements missing |
-| 7 | Workers | NOT STARTED | Redis/Celery and persistent runs |
-| 8 | Docker | NOT STARTED | All services; engine prerequisite |
-| 9 | Environments | NOT STARTED | Development/production and backup workflows |
+| 7 | Workers | IN PROGRESS | Celery, durable runs, retries implemented; real Redis/worker verification pending |
+| 8 | Docker | IMPLEMENTED — UNVERIFIED | Full service configurations; real engine test pending |
+| 9 | Environments | IN PROGRESS | Dev/prod configuration and backup guidance; runtime validation pending |
 | 10 | Terraform EC2 | NOT STARTED | Configuration and validation |
 | 11 | EC2 deployment | NOT STARTED | Automation and approved real deployment |
-| 12 | Nginx/TLS | NOT STARTED | Proxy and domain/certificate prerequisite |
-| 13 | CI/CD | NOT STARTED | Automated checks, safe deployment preparation |
-| 14 | Hardening | NOT STARTED | Full automated and realistic integration review |
+| 12 | Nginx/TLS | IN PROGRESS | Proxy prepared; domain/certificate and runtime checks pending |
+| 13 | CI/CD | IN PROGRESS | Checks workflow prepared; remote results/deployment preparation pending |
+| 14 | Hardening | IN PROGRESS | Unit/browser checks and security dependency fixes; full integration pending |
 | 15 | Documentation | IN PROGRESS | Audit docs created; README/diagrams remain |
 | 16 | Vagrant | NOT STARTED | Configuration and verification |
 | 17 | Ansible | NOT STARTED | Roles and verification |
@@ -68,3 +69,25 @@ Milestones 1–3 and 6 remain IN PROGRESS until their full acceptance criteria p
 Next: classifier, Gmail persistence/encrypted tokens, mocked integration tests,
 then Celery sync. Existing database migration requires inspection and backup;
 do not run automatic schema changes against it.
+
+## Gmail and classification increment
+
+Implemented official Gmail REST metadata retrieval and pagination, per-user
+message deduplication, conservative identity/stage rules, ISO deadlines,
+thread/exact company-role association, event ordering, manual-stage locks and
+source-message history. Added encrypted refresh tokens and separate Gmail
+consent. Celery tasks use atomic claims, exponential retry and persistent sync
+records; failures are sanitized. Added review association, disconnect/revocation,
+account deletion and corresponding dashboard controls.
+
+35 isolated Python tests pass. Six Playwright desktop/mobile frontend workflows
+pass with synthetic API fixtures; these are NOT a live Google/backend E2E claim.
+Screenshots in ignored apps/web/test-results show the real UI with synthetic data.
+Next.js 16.2.7 had a critical npm advisory; updated within major to 16.4.3 and
+matching eslint-config-next. Compatible transitive fixes leave npm audit with
+zero reported vulnerabilities. Production build/TypeScript passed after update.
+Local PostgreSQL is reachable and has legacy users/applications tables with zero
+applications; only schema and counts inspected, no private user rows displayed.
+Prepared scripts/migrate_local.py: preflight passes without changes; user approval
+for backup/stamp/additive migrations is pending. Docker/Google setup confirmation
+also pending. No live Google access or cloud actions performed.

@@ -3,6 +3,7 @@ import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+import httpx
 
 from authlib.integrations.starlette_client import OAuth
 from dotenv import load_dotenv
@@ -16,7 +17,10 @@ from authlib.integrations.base_client.errors import OAuthError
 from starlette.middleware.sessions import SessionMiddleware
 
 from apps.api.database import SessionLocal, get_db
-from apps.api.models import AuthSession, User
+from apps.api.models import AuthSession, OAuthCredential, User
+from apps.api.gmail_client import GMAIL_SCOPE
+from apps.api.gmail_routes import router as gmail_router
+from apps.api.token_store import cipher, encrypt
 from apps.api.applications import router as applications_router
 from apps.api.dependencies import current_user
 
@@ -36,6 +40,13 @@ if production and not frontend_url.startswith("https://"):
     raise RuntimeError("Production FRONTEND_URL must use HTTPS")
 app = FastAPI(title="FlowState API")
 app.include_router(applications_router)
+app.include_router(gmail_router)
+
+
+@app.exception_handler(SQLAlchemyError)
+async def database_failure(request: Request, error: SQLAlchemyError):
+    # SQLAlchemy exception strings can contain SQL parameters with private data.
+    return JSONResponse({"detail": "Database unavailable; please retry"}, status_code=503)
 
 
 @app.middleware("http")
@@ -99,13 +110,26 @@ def read_root():
 
 # Starts the Google login process.
 @app.get("/auth/google/login")
-async def google_login(request: Request):
+async def google_login(request: Request, gmail: bool = False, database: Session = Depends(get_db)):
     redirect_uri = os.getenv("GOOGLE_REDIRECT_URI")
 
     if not redirect_uri:
         raise HTTPException(503, "Google login is not configured")
 
-    return await oauth.google.authorize_redirect(request, redirect_uri)
+    if gmail:
+        user = current_user(request, database)
+        try:
+            cipher()
+        except (ValueError, RuntimeError):
+            raise HTTPException(503, "Gmail token encryption is not configured") from None
+        request.session["gmail_connect_user"] = user.id
+        return await oauth.google.authorize_redirect(request, redirect_uri,
+            scope=f"openid email profile {GMAIL_SCOPE}", access_type="offline", prompt="consent")
+    request.session.pop("gmail_connect_user", None)
+    try:
+        return await oauth.google.authorize_redirect(request, redirect_uri)
+    except httpx.HTTPError:
+        raise HTTPException(503, "Google login temporarily unavailable") from None
 
 
 # Google sends the user back to this route after a successful login.
@@ -116,6 +140,9 @@ async def google_callback(request: Request):
     except OAuthError:
         request.session.clear()
         raise HTTPException(400, "Google authentication failed; please try again") from None
+    except httpx.HTTPError:
+        request.session.clear()
+        raise HTTPException(503, "Google login temporarily unavailable") from None
     user_info = token.get("userinfo")
 
     if not user_info or not user_info.get("sub") or not user_info.get("email_verified"):
@@ -145,14 +172,25 @@ async def google_callback(request: Request):
             database_user.email = user_info["email"]
             database_user.name = user_info.get("name")
 
-        # Permanently saves the new or updated user.
-        database.commit()
-
-        # Reloads the record so generated values such as id are available.
-        database.refresh(database_user)
+        database.flush()
+        connecting_user = request.session.get("gmail_connect_user")
+        if connecting_user is not None:
+            if database_user.id != connecting_user:
+                raise HTTPException(400, "Connect the same Google account used to sign in")
+            if GMAIL_SCOPE not in token.get("scope", "").split() or not token.get("refresh_token"):
+                raise HTTPException(400, "Gmail read-only permission and offline access are required")
+            credential = database.get(OAuthCredential, database_user.id)
+            if credential is None:
+                credential = OAuthCredential(user_id=database_user.id)
+                database.add(credential)
+            credential.encrypted_refresh_token = encrypt(token["refresh_token"])
+            credential.scope = token["scope"]
 
         # Only an opaque session token reaches the browser; logout revokes it.
         session_token = secrets.token_urlsafe(32)
+        previous = request.session.get("sid")
+        if isinstance(previous, str):
+            database.execute(delete(AuthSession).where(AuthSession.token_hash == hashlib.sha256(previous.encode()).hexdigest()))
         database.add(AuthSession(
             token_hash=hashlib.sha256(session_token.encode()).hexdigest(),
             user_id=database_user.id,

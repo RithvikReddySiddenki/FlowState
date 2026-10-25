@@ -1,0 +1,44 @@
+# Add after compose.yml and docker-compose.prod.yml on an approved AWS host.
+# Supply interpolation values through a mode-0600 --env-file; never render config
+# into logs. This file does not provision infrastructure or retrieve secrets.
+x-cloudwatch: &cloudwatch
+  driver: awslogs
+  options:
+    awslogs-region: ${AWS_REGION:?Set the approved AWS region}
+    awslogs-group: ${CLOUDWATCH_LOG_GROUP:?Set the existing Terraform log group}
+    awslogs-stream: ${RELEASE_ID:?Set the immutable release ID}/{{.Name}}
+    awslogs-create-group: "false"
+services:
+  db:
+    profiles: [embedded-data]
+  redis:
+    profiles: [embedded-data]
+  migrate:
+    environment: &managed
+      DATABASE_URL: ${DATABASE_URL:?Set the private TLS RDS application URL}
+      REDIS_URL: ${REDIS_URL:?Set the private verified-TLS Redis URL}
+    depends_on: !reset []
+    logging: *cloudwatch
+  api:
+    environment: *managed
+    depends_on: !override
+      migrate: {condition: service_completed_successfully}
+    logging: *cloudwatch
+  worker:
+    environment: *managed
+    depends_on: !override
+      migrate: {condition: service_completed_successfully}
+    logging: *cloudwatch
+  scheduler:
+    environment:
+      <<: *managed
+      APP_ENV: production
+    depends_on: !override
+      migrate: {condition: service_completed_successfully}
+    logging: *cloudwatch
+  web:
+    logging: *cloudwatch
+  nginx:
+    # Only the instance-private IPv4 address admitted by the ALB security group.
+    ports: !override ["${APP_PRIVATE_IP:?Set the approved private interface}:8080:80"]
+    logging: *cloudwatch

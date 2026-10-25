@@ -10,5 +10,7 @@ prerequisites. It contains no application environment, OAuth secrets or user dat
 Supply the resulting reviewed AMI ID to the simple Terraform ami_id variable.
 Terraform handles instances/networking, Ansible handles runtime configuration,
 and reviewed deployment releases supply the application. No cloud image build
-has been performed. CloudWatch/Prometheus agents remain runtime choices rather
-than baking account-specific monitoring credentials into an image.
+has been performed. The image prepares sysstat and Prometheus node exporter;
+the exporter is disabled in the image. At runtime bind it to an explicitly
+approved private interface and restrict scraping before enabling its service.
+No account-specific monitoring credentials are baked into the image.

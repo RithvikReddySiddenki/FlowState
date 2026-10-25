@@ -25,12 +25,12 @@ Checklist (unchecked means acceptance criteria remain unmet):
 - [ ] 16. Vagrant three-VM lab and verification
 - [ ] 17. Idempotent Ansible roles, secure configuration, deployment
 - [ ] 18. Packer image, validation (approval before paid build)
-- [ ] 19. Local Kubernetes deployments, storage, probes, verification
+- [x] 19. Local Kubernetes deployments, storage, probes, verification
 - [ ] 20. Separate managed AWS Terraform, private RDS/Redis, ALB, secrets
-- [ ] 21. Structured logs, request IDs, metrics, private monitoring dashboards
+- [x] 21. Structured logs, request IDs, metrics, private monitoring dashboards
 - [ ] 22. Optional Gmail watch/PubSub/history, renewal, polling fallback
 
-## Audit findings
+## Initial audit findings (before implementation)
 
 Only three backend Python modules exist. Application routes use a process-local
 dictionary with no authentication or ownership checks. Missing IDs return 200.

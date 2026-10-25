@@ -44,6 +44,12 @@ build {
     execute_command = "chmod +x {{ .Path }}; sudo {{ .Path }} --approved"
   }
   provisioner "shell" {
+    inline = [
+      "sudo apt-get install -y prometheus-node-exporter sysstat",
+      "sudo systemctl disable --now prometheus-node-exporter"
+    ]
+  }
+  provisioner "shell" {
     inline = ["sudo apt-get clean", "sudo rm -f /var/log/cloud-init-output.log"]
   }
 }

@@ -63,6 +63,8 @@ jobs:
       - run: npm run test:e2e
   containers:
     runs-on: ubuntu-latest
+    env:
+      GRAFANA_ADMIN_PASSWORD: synthetic-ci-monitoring-password
     steps:
       - uses: actions/checkout@v4
       - name: Synthetic container environment
@@ -94,14 +96,26 @@ jobs:
           npm ci
           npx playwright install --with-deps chromium
           npx playwright test --config=playwright.live.config.ts
+      - name: Private monitoring runtime
+        run: |
+          docker compose -p flowstate-validation -f compose.yml -f docker-compose.dev.yml -f compose.validation.yml -f docker-compose.monitoring.yml --profile monitoring up --build -d --wait --wait-timeout 240
+          python -m pip install httpx
+          for attempt in {1..20}; do
+            if python scripts/check_monitoring.py; then exit 0; fi
+            sleep 3
+          done
+          exit 1
       - name: Cleanup synthetic stack
         if: always()
-        run: docker compose -p flowstate-validation -f compose.yml -f docker-compose.dev.yml -f compose.validation.yml down
+        run: docker compose -p flowstate-validation -f compose.yml -f docker-compose.dev.yml -f compose.validation.yml -f docker-compose.monitoring.yml --profile monitoring down
   terraform:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        directory: [infra/terraform, infra/terraform-managed]
     defaults:
       run:
-        working-directory: infra/terraform
+        working-directory: ${{ matrix.directory }}
     steps:
       - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v3
@@ -110,3 +124,38 @@ jobs:
       - run: terraform fmt -check
       - run: terraform init -backend=false
       - run: terraform validate
+  infrastructure:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install ansible-core
+      - run: ansible-playbook -i inventory.example.yml site.yml --syntax-check
+        working-directory: infra/ansible
+      - run: ruby -c infra/vagrant/Vagrantfile
+      - run: for script in scripts/*.sh; do bash -n "$script"; done
+      - uses: hashicorp/setup-packer@v3
+        with:
+          version: "1.16.2"
+      - run: packer init infra/packer
+      - run: packer fmt -check infra/packer
+      - run: packer validate infra/packer
+        env:
+          AWS_EC2_METADATA_DISABLED: "true"
+  kubernetes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: helm/kind-action@v1
+        with:
+          install_only: true
+          version: v0.33.0
+      - run: bash scripts/check_kubernetes.sh
+        env:
+          FLOWSTATE_K8S_VALIDATION: synthetic-only
+      - name: Synthetic lab cleanup
+        if: always()
+        run: kind delete cluster --name flowstate-ci

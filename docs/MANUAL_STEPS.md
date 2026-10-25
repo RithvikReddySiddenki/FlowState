@@ -4,7 +4,7 @@
 
 - Original uncommitted main.py OAuth changes preserved and extended.
 - Native local database backed up under ignored backups/, baseline registered,
-  migrated through 0004 and metadata checked. Existing users retained.
+  migrated through 0005 and metadata checked. Existing users retained.
 - Development encryption key added to ignored apps/api/.env, never displayed.
 - Real Google sign-in, Gmail consent, token refresh and a live worker sync passed.
   Metadata was persisted without printing email content.
@@ -46,9 +46,11 @@ certificate or working public HTTPS.
 
 ## Optional Gmail push and verification
 
-Pub/Sub topic/subscription, authenticated public push endpoint, watch renewal and
-Google restricted-scope verification need separate setup/approval. Polling remains
-supported. No Google production verification approval is claimed.
+Watch/history, authenticated notification handling and renewal are implemented
+and tested with synthetic fixtures. Creating a Pub/Sub topic/subscription and
+verifying live public delivery require separate setup/approval; follow
+GMAIL_PUSH.md. Google restricted-scope production verification remains pending;
+GOOGLE_VERIFICATION.md contains owner-review drafts. Polling remains supported.
 
 ## Existing manual Docker services
 

@@ -1,102 +1,110 @@
 # FlowState progress
 
 Updated 2026-10-24 (America/New_York). Branch: feat/flowstate-complete-platform.
-Never merge to main or provision/publicly expose paid resources without approval.
+Never merge main, provision paid resources or publicly expose services without approval.
 
 ## Current state
 
-Core product has passed real Google login, Gmail consent, refresh-token exchange,
-and a completed live Gmail sync. Only status/metadata-presence diagnostics were
-printed; no real message content, user email, token or credential was committed.
-User confirmed login/connection/sync. Initial Google rate limits prompted request
-pacing and metadata-ID skipping so retries do not refetch stored messages.
+Core product passed real Google login, separate Gmail consent, refresh-token
+exchange and a completed live Gmail sync. The user independently confirmed all
+three. Real message content, account email and credentials were never committed
+or printed. Request pacing and stored-ID skipping address provider rate limits.
 
-User explicitly approved preserving/extending the original main.py changes and
-backing up/migrating the native database. Backup retained in ignored backups/;
-baseline registration, upgrade through 0004 and schema check passed. Existing
-users retained. A new development-only Fernet key was appended to ignored
-apps/api/.env without changing existing settings or printing the key.
+User approved preserving/extending original main.py edits and local DB backup /
+migration. Native PostgreSQL was backed up again to ignored backups/ before
+migration 0005; existing users and recruiting metadata retained, schema check
+passed. The development Fernet key lives only in ignored apps/api/.env.
+Optional push remains DISABLED for the real account and all default deployments.
 
-## Pushed checkpoints
+## Pushed checkpoints before this release
 
-| Commit | Work | Push |
-|---|---|---|
-| ec742c5 | Persistent owned CRUD, secure sessions, dashboard, baseline migrations | succeeded |
-| a0d607d | Encrypted Gmail sync, classifier, worker/review workflows, browser tests | succeeded |
-| 03ff039 | Verified containers, CI, Terraform EC2, recovery, deployment tooling | succeeded |
+| Commit | Work |
+|---|---|
+| ec742c5 | Owned persistent CRUD, secure sessions, dashboard and migrations |
+| a0d607d | Encrypted Gmail, classifier, worker/review and browser workflows |
+| 03ff039 | Verified containers, CI, simple Terraform, recovery and deployment |
+| 722b4bc | Settings, UI polish, quota-aware sync and Windows polling |
 
-GitHub Actions for 03ff039: backend, frontend, containers and Terraform all passed.
-Run: https://github.com/RithvikReddySiddenki/FlowState/actions/runs/40151491722
+722b4bc remote checks all passed:
+https://github.com/RithvikReddySiddenki/FlowState/actions/runs/40154147095
 
-Current uncommitted agent work: settings route/navigation, loading/recent-activity
-and expiry handling, quota-aware Gmail requests, Windows Docker polling, advanced
-VM/Ansible/Packer files and documentation. A new untracked .vscode/ directory
-appeared during the session; it is USER WORK and must be left untouched/uncommitted.
+New local checkpoints: 6c5ca3c VM automation; b515adf verified Kubernetes;
+ed2f791 managed AWS configuration. Observability, optional push and expanded CI
+are being committed/validated. Record their push and remote results below.
+User-created .vscode/ remains untracked and MUST NOT be modified/staged.
 
 ## Milestones
 
-| # | Milestone | Status | Evidence / remaining |
-|---|---|---|---|
-| 1 | Foundation | COMPLETE | Real local startup, migrations, schemas, health, config and logging |
-| 2 | Owned CRUD | COMPLETE | SQLite/PostgreSQL tests and actual desktop/mobile container CRUD |
-| 3 | Google OAuth | COMPLETE | Real browser login; revocable sessions, origin/state/ownership tests |
-| 4 | Gmail integration | COMPLETE | Real consent/refresh and completed native sync, metadata persisted |
-| 5 | Classification | COMPLETE | Conservative rules pass expected synthetic scenarios; template limitations documented |
-| 6 | Dashboard | COMPLETE | Real API UI, settings/navigation, skeletons, recent activity and expiry tests pass |
-| 7 | Workers | COMPLETE | Real Redis/Celery failure/success/recovery; retries and deduplication tests |
-| 8 | Docker | COMPLETE | Full stack health and DB persistence across container recreation |
-| 9 | Environments | COMPLETE | Independent dev/production-shaped local startup; TLS is separate |
-| 10 | Terraform EC2 | IN PROGRESS | fmt/init/validate pass; authenticated AWS plan/provisioning pending |
-| 11 | EC2 deployment | IMPLEMENTED — UNVERIFIED | Bootstrap/deploy/backup scripts; no actual host deployment |
-| 12 | Nginx/TLS | IN PROGRESS | Proxy, DNS recovery and nginx -t pass; domain/certificate/public approval pending |
-| 13 | CI/CD | IN PROGRESS | Four remote checks pass; latest changes need their own run; auto-deploy disabled |
-| 14 | Hardening | IN PROGRESS | Core tests/audits pass; extended infrastructure and final regression checks ongoing |
-| 15 | Documentation | COMPLETE | Accurate README, five diagrams, guides and explicitly synthetic actual-UI captures |
-| 16 | Vagrant | IMPLEMENTED — UNVERIFIED | Three-VM configuration; Ruby syntax passes; no Vagrant/provider installed |
-| 17 | Ansible | IN PROGRESS | Lab roles/inventory/templates; syntax passes; no actual VM provisioning yet |
-| 18 | Packer | IMPLEMENTED — UNVERIFIED | Checksum-verified CLI; fmt and syntax-only validation pass; paid build not run |
-| 19 | Kubernetes | IN PROGRESS | Checksum-verified kind installed; isolated local cluster/manifests next |
-| 20 | Managed AWS | NOT STARTED | Separate RDS/cache/ALB/secrets architecture next; no apply authorized |
-| 21 | Observability | IN PROGRESS | Sanitized structured request logs/IDs; metrics and private dashboards next |
-| 22 | Gmail push | NOT STARTED | Optional watch/history/PubSub preparation next; publication requires approval |
+| # | Milestone | Status / evidence |
+|---|---|---|
+| 1 | Foundation | Verified locally: startup, models, config, health and migrations |
+| 2 | Owned CRUD | Verified SQLite/PostgreSQL and actual desktop/mobile CRUD |
+| 3 | Google OAuth | Real login; revocable sessions, state/origin/ownership tests |
+| 4 | Gmail | Real consent, refresh, live sync and persisted metadata |
+| 5 | Classification | Synthetic recruiting scenarios, provenance and corrections pass |
+| 6 | Dashboard | Real API UI, settings, expiry, loading, activity and deadlines |
+| 7 | Workers | Real Redis/Celery success/failure, duplicate/order/recovery checks |
+| 8 | Docker | Full dev/prod-shaped health, routing and persistent-volume checks |
+| 9 | Environments | Independent overrides, secure config, migration/backup tooling |
+| 10 | Simple Terraform | fmt/init/validate pass; authenticated AWS plan pending |
+| 11 | EC2 deployment | Scripts prepared/syntax checked; real host unavailable |
+| 12 | Nginx/TLS | Actual proxy/DNS recovery pass; public domain/cert/renewal pending |
+| 13 | CI/CD | Core remote green; expanded CI awaits this release's run; no auto deploy |
+| 14 | Hardening | Tests/audits/secret checks pass; final runtime regression ongoing |
+| 15 | Docs | README, diagrams, synthetic screenshots, runbooks and verification drafts |
+| 16 | Vagrant | Three VMs; Ruby syntax passes; provider/runtime unavailable |
+| 17 | Ansible | All roles syntax pass; VM provisioning/idempotence unverified |
+| 18 | Packer | fmt/full validate pass; monitoring prerequisites prepared; no paid build |
+| 19 | Kubernetes | Actual kind storage/migration/workloads/Traefik/API/queue/browser pass |
+| 20 | Managed AWS | Separate two-AZ network/RDS/cache/ALB/secrets/logs validate; no plan/apply |
+| 21 | Monitoring | Actual private Prometheus targets, health gauges and Grafana verified |
+| 22 | Gmail push | Implemented and synthetic tests pass; public/cloud delivery unverified |
 
 ## Verification
 
-- 39 tests pass with SQLite and real PostgreSQL in isolated temporary schemas.
-- Ten mocked-API Playwright desktop/mobile tests pass including settings/expiry.
-  Two real-container desktop/mobile CRUD
-  and settings-navigation tests pass. Production Next.js build/TypeScript/lint pass.
-- API/non-root optimized frontend images build. Both isolated Compose stacks
-  start healthy; Nginx routes, nginx -t, migrations and persistent volumes pass.
-  Static Docker DNS caching found during recreation was fixed with dynamic upstreams.
-- Real queue tests cover synthetic-provider success, duplicates/ordering, durable
-  auth failure and interrupted-run recovery. Single Beat scheduler recovers stale
-  jobs after 15 minutes, bounded to three recoveries.
-- Ruff lint/format and pip check pass. npm audit and pip-audit report zero known
-  vulnerabilities after targeted updates. Exact-match scans of current local
-  secrets in source and Git history pass; not a claim of exhaustive entropy scanning.
-- Terraform 1.17.0/AWS 6.70.0 fmt/init/validate pass. No plan/apply/destroy or paid
-  image build occurred. Shell scripts pass bash -n. Vagrant Ruby and Ansible syntax
-  pass; full VM provisioning remains unverified.
+- 47 tests pass with SQLite and PostgreSQL using isolated temporary schemas.
+  Includes signed push JWT identity/audience/expiry, duplicates, history pages,
+  expired-cursor fallback, initial-backfill failure, renewal and polling recovery.
+- Existing ten mocked desktop/mobile browser tests and two live Compose tests
+  pass; two live Kubernetes browser tests pass through actual Traefik ingress.
+  Frontend production build/TypeScript/lint passed at 722b4bc; frontend unchanged.
+- Real synthetic Celery tests cover success/dedupe/order, auth failure and bounded
+  interrupted-run recovery. No test-login production endpoint was introduced.
+- Docker images/independent dev/prod-shaped stacks pass health/proxy/persistence.
+  Final image/migration 0005 and monitoring regression underway for this release.
+- Prometheus API and operations targets are up; DB/broker gauges are 1; authenticated
+  Grafana returns provisioned FlowState operations. Labels contain no PII/IDs.
+- Ruff lint/format, pip check and pip-audit pass (zero known vulnerabilities).
+  Earlier unchanged frontend npm audit passed. Exact current-local-secret scan of
+  source passes; this is not a claim of exhaustive entropy scanning.
+- Terraform 1.17.0/AWS6.70.0 validates both directories. Packer1.16.2 full validate,
+  Ruby syntax, Ansible syntax and every shell script's bash -n pass. No AWS plan,
+  apply/destroy, paid AMI build, real VM provisioning or public TLS was performed.
 
-## Running local services and resume
+## Local services and safe resume
 
-Native frontend http://localhost:3000 and API localhost:8000 are running with the
-migrated native DB and existing FlowState Redis on 6379. Development Celery uses
-Windows solo mode (not a production recommendation); production Linux workers
-were tested separately. Local Beat state is ignored under .tools/.
+Native frontend localhost:3000 and API localhost:8000 use the migrated native DB
+and existing Redis6379. Windows solo Celery/Beat are development-only; Linux
+workers were separately exercised. All new infrastructure data is synthetic.
+Isolated Compose validation uses 13000/18000, private monitoring19090/13001;
+production-shaped Nginx18080. The dedicated kind cluster flowstate-lab uses only
+.tools/flowstate-lab.kubeconfig; Traefik port-forward18090. Native kubeconfig is
+untouched. Do not delete valuable volumes or change user containers casually.
+Existing user flowstate-redis/postgres host bindings are all-interface and were
+left unchanged; restrict before calling that manual setup hardened.
 
-Isolated validation projects use loopback 13000/18000 and production-shaped
-Nginx 18080, with separate synthetic volumes and no real Google credentials.
-Existing user containers named flowstate-redis and flowstate-postgres advertise
-all-interface host port bindings; they were not recreated or changed. Restrict
-those bindings before treating that manual setup as a hardened deployment.
+## Remaining external checkpoints
 
-Next: finish current browser checks, commit/push the core polish without .vscode,
-then validate Kubernetes, managed AWS templates and monitoring. Record actual
-runtime results and blockers. Preserve the real account/metadata in the native DB;
-all new infrastructure tests must remain synthetic and isolated.
+- Install/approve a supported Vagrant/provider and run the lab twice to check health
+  and idempotence; approximately6GB VM RAM plus host overhead is needed.
+- Configure AWS identity/region and encrypted state backend locally, review a plan
+  and cost estimate, then explicitly approve resources/Packer/deployment.
+- Supply an approved domain/certificate; verify public HTTPS/renewal and real OAuth
+  callbacks before publishing. No DNS purchases/changes or main merge authorized.
+- Optional Pub/Sub setup and live push verification require public HTTPS and Google
+  project IAM; production restricted-scope verification is separately pending.
+  Follow MANUAL_STEPS.md, GMAIL_PUSH.md and GOOGLE_VERIFICATION.md.
 
-Pending manual dependencies: Vagrant/VirtualBox for real VM lab; AWS credentials,
-region/cost/plan approval for cloud work; domain/certificates and publication
-approval; optional Pub/Sub setup/Google verification. See MANUAL_STEPS.md.
+Next exact step: complete final container regression, push the new checkpoints,
+inspect expanded GitHub Actions and fix failures. Update this file with the final
+commit/run and leave all remaining external requirements explicit.

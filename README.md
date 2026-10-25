@@ -4,12 +4,13 @@ A Gmail-powered job application tracker built with Next.js, FastAPI,
 PostgreSQL and Celery. Track applications manually, connect Gmail with read-only
 consent, and review recruiting updates with their source-message context.
 
-**Project status:** active development. Automated backend and synthetic browser
-workflows pass locally, including real container/PostgreSQL/Redis/Celery checks.
-Real Google/Gmail, public HTTPS and AWS deployment have not yet been verified.
-See [progress](docs/PROGRESS.md) and
-the [22-stage implementation plan](docs/IMPLEMENTATION_PLAN.md). Advanced VM,
-Kubernetes and managed AWS extensions are not yet implemented.
+**Project status:** core product verified locally, including real Google login,
+Gmail consent and a completed live sync. Automated workflows pass with real
+PostgreSQL/Redis/Celery, Compose and local Kubernetes ingress. VM automation,
+Packer and both AWS Terraform configurations are prepared and validate; actual
+VM/cloud deployment, public HTTPS and live Pub/Sub remain external checkpoints.
+See [progress](docs/PROGRESS.md) and the
+[22-stage implementation plan](docs/IMPLEMENTATION_PLAN.md).
 
 ## Features implemented in code
 
@@ -33,7 +34,7 @@ Kubernetes and managed AWS extensions are not yet implemented.
 
 ```mermaid
 flowchart LR
-  Browser --> Proxy[Nginx: prepared]
+  Browser --> Proxy[Nginx gateway]
   Proxy --> Web[Next.js / React / TypeScript / Tailwind]
   Proxy --> API[FastAPI / Pydantic / Authlib]
   API --> DB[(PostgreSQL / SQLAlchemy / Alembic)]
@@ -198,6 +199,26 @@ host preparation, secure configuration, reviewed releases, backups, migrations,
 health checks, Nginx/TLS and recovery. No production automatic deployment is
 enabled. AWS compute, storage and IPs can incur charges; apply requires approval.
 
+## Extended infrastructure
+
+- [Three-VM Vagrant lab](infra/vagrant/README.md) and
+  [Ansible roles](infra/ansible/README.md): isolated app/data/monitoring networks,
+  secure configuration, Docker deployment and private monitoring. Syntax checked;
+  provider installation, actual provisioning and second-run idempotence pending.
+- [Packer](infra/packer/README.md): validated Ubuntu/Docker image definition with
+  security updates and monitoring prerequisites; no paid image build performed.
+- [Kubernetes](infra/kubernetes/README.md): kind, persistent storage, migration Job,
+  restricted workloads/probes and Traefik ingress passed actual local workflows.
+- [Managed AWS](infra/terraform-managed/README.md): reusable two-AZ network,
+  private encrypted Multi-AZ RDS/Redis, ALB, SSM, least-privilege runtime secret and
+  CloudWatch permissions. Terraform validates; no account plan/apply performed.
+- [Private monitoring](infra/monitoring/README.md): actual Prometheus scrapes,
+  dependency gauges and provisioned Grafana dashboard verified with synthetic data.
+- [Optional Gmail push](docs/GMAIL_PUSH.md): authenticated Pub/Sub receiver,
+  watch/history, renewal and polling recovery tested synthetically. No public
+  subscription created; [verification/privacy preparation](docs/GOOGLE_VERIFICATION.md)
+  requires owner review before publication.
+
 ## Security, privacy and limitations
 
 Tokens and full email bodies do not reach browser JavaScript. Logs use route
@@ -211,8 +232,9 @@ Initial scans cover one year; incremental scans overlap one day. Unknown employe
 or role, conflicting signals and generic ATS senders need review. Date extraction
 supports ISO dates. Manual stages remain locked against automatic updates.
 Interrupted syncs are requeued by a single Beat scheduler after a 15-minute stale
-heartbeat window, with bounded recovery attempts. History-based Gmail push is
-future work. Real Google and deployment verification remain pending. Development and optimized
+heartbeat window, with bounded recovery attempts. Optional authenticated Gmail push/history is implemented and disabled pending
+public HTTPS/PubSub setup. Production Google verification and cloud deployment
+remain pending. Development and optimized
 production-shaped stacks passed local health/proxy checks; authenticated browser
 CRUD passed against the real development containers on desktop and mobile.
 

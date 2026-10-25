@@ -1,0 +1,36 @@
+# Run from infra/vagrant with VirtualBox and sufficient RAM available.
+Vagrant.configure("2") do |config|
+  config.vm.box = "bento/ubuntu-24.04"
+  config.vm.synced_folder ".", "/vagrant", disabled: true
+  nodes = {
+    "database" => { ip: "192.168.56.11", memory: 1536 },
+    "monitoring" => { ip: "192.168.56.12", memory: 1536 },
+    "application" => { ip: "192.168.56.10", memory: 2048 }
+  }
+  nodes.each do |name, settings|
+    config.vm.define name do |node|
+      node.vm.hostname = "flowstate-#{name}"
+      node.vm.network "private_network", ip: settings[:ip]
+      node.vm.provider "virtualbox" do |provider|
+        provider.memory = settings[:memory]
+        provider.cpus = 2
+      end
+      # Share automation only: never the repository's local .env or backups.
+      node.vm.synced_folder "../ansible", "/opt/flowstate-automation", mount_options: ["ro"]
+      if name == "application"
+        node.vm.network "forwarded_port", guest: 8080, host: 18081, host_ip: "127.0.0.1"
+      end
+      node.vm.provision "shell", inline: <<-SHELL
+        set -eu
+        apt-get update
+        apt-get install -y python3 python3-venv ansible git ca-certificates
+        install -d -m 0750 /opt/flowstate-lab
+        cp -r /opt/flowstate-automation/. /opt/flowstate-lab/
+        # This lab uses explicitly synthetic credentials, never real Gmail.
+        ansible-playbook -i localhost, -c local /opt/flowstate-lab/site.yml \
+          -e @/opt/flowstate-lab/group_vars/lab.yml \
+          -e flowstate_node_role=#{name} -e ansible_python_interpreter=/usr/bin/python3
+      SHELL
+    end
+  end
+end

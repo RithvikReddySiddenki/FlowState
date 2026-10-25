@@ -1,0 +1,11 @@
+- name: Configure approved FlowState Linux hosts
+  hosts: all
+  become: true
+  roles:
+    - system
+    - role: datastore
+      when: flowstate_node_role == 'database'
+    - role: application
+      when: flowstate_node_role == 'application'
+    - role: monitoring
+      when: flowstate_node_role == 'monitoring'

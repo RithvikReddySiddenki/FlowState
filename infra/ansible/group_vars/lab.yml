@@ -1,0 +1,15 @@
+# Synthetic, isolated host-only lab settings. Never use for real user data.
+flowstate_lab: true
+flowstate_db_host: 192.168.56.11
+flowstate_app_host: 192.168.56.10
+flowstate_monitor_host: 192.168.56.12
+flowstate_grafana_password: synthetic-vagrant-grafana-password
+flowstate_bind_address: 192.168.56.11
+flowstate_db_password: synthetic-isolated-vagrant-password
+flowstate_session_secret: synthetic-vagrant-session-secret-not-for-real-data
+flowstate_frontend_url: http://localhost:18081
+flowstate_google_client_id: ""
+flowstate_google_client_secret: ""
+flowstate_google_redirect_uri: ""
+flowstate_encryption_key: ""
+flowstate_git_ref: feat/flowstate-complete-platform

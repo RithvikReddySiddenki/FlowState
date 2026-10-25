@@ -1,0 +1,25 @@
+- name: Require explicit private bind and credentials
+  ansible.builtin.assert:
+    that:
+      - flowstate_lab | default(false) | bool
+      - flowstate_bind_address is defined
+      - flowstate_bind_address not in ['0.0.0.0', '::']
+      - flowstate_bind_address is match('^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.)')
+      - flowstate_db_password | length >= 20
+    quiet: true
+  no_log: true
+- name: Install datastore configuration
+  ansible.builtin.template:
+    src: compose.yml.j2
+    dest: /opt/flowstate/compose.yml
+    mode: '0600'
+  no_log: true
+  register: datastore_config
+- name: Check current datastore services
+  ansible.builtin.command: docker compose -f /opt/flowstate/compose.yml ps --services --status running
+  register: datastore_running
+  changed_when: false
+- name: Start or update datastore services
+  ansible.builtin.command: docker compose -f /opt/flowstate/compose.yml up -d --wait
+  when: datastore_config.changed or 'db' not in datastore_running.stdout_lines or 'redis' not in datastore_running.stdout_lines
+  changed_when: true

@@ -1,0 +1,10 @@
+APP_ENV=development
+DATABASE_URL=postgresql+psycopg://flowstate:{{ flowstate_db_password }}@{{ flowstate_db_host }}:5432/flowstate
+POSTGRES_PASSWORD={{ flowstate_db_password }}
+REDIS_URL=redis://{{ flowstate_db_host }}:6379/0
+SESSION_SECRET={{ flowstate_session_secret }}
+FRONTEND_URL={{ flowstate_frontend_url }}
+GOOGLE_CLIENT_ID={{ flowstate_google_client_id }}
+GOOGLE_CLIENT_SECRET={{ flowstate_google_client_secret }}
+GOOGLE_REDIRECT_URI={{ flowstate_google_redirect_uri }}
+TOKEN_ENCRYPTION_KEY={{ flowstate_encryption_key }}

@@ -1,0 +1,52 @@
+- name: Require supported Ubuntu release
+  ansible.builtin.assert:
+    that:
+      - ansible_distribution == 'Ubuntu'
+      - ansible_distribution_version == '24.04'
+- name: Install prerequisites
+  ansible.builtin.apt:
+    name: [ca-certificates, curl, git, unattended-upgrades, python3-debian]
+    state: present
+    update_cache: true
+- name: Create keyring directory
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: '0755'
+- name: Install Docker repository key
+  ansible.builtin.get_url:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    dest: /etc/apt/keyrings/docker.asc
+    mode: '0644'
+- name: Configure Docker apt source
+  ansible.builtin.deb822_repository:
+    name: docker
+    types: [deb]
+    uris: https://download.docker.com/linux/ubuntu
+    suites: [noble]
+    components: [stable]
+    architectures: ["{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}"]
+    signed_by: /etc/apt/keyrings/docker.asc
+    state: present
+- name: Install Docker and Compose
+  ansible.builtin.apt:
+    name: [docker-ce, docker-ce-cli, containerd.io, docker-buildx-plugin, docker-compose-plugin]
+    state: present
+    update_cache: true
+- name: Enable Docker
+  ansible.builtin.service:
+    name: docker
+    state: started
+    enabled: true
+- name: Create private deployment directory
+  ansible.builtin.file:
+    path: /opt/flowstate
+    state: directory
+    mode: '0750'
+- name: Disable password SSH and direct root passwords
+  ansible.builtin.copy:
+    dest: /etc/ssh/sshd_config.d/flowstate.conf
+    content: "PasswordAuthentication no\nPermitRootLogin prohibit-password\n"
+    mode: '0644'
+    validate: /usr/sbin/sshd -t -f %s
+  notify: Reload SSH

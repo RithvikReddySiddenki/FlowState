@@ -1,0 +1,14 @@
+all:
+  hosts:
+    application:
+      ansible_host: 192.168.56.10
+      ansible_user: vagrant
+      flowstate_node_role: application
+    database:
+      ansible_host: 192.168.56.11
+      ansible_user: vagrant
+      flowstate_node_role: database
+    monitoring:
+      ansible_host: 192.168.56.12
+      ansible_user: vagrant
+      flowstate_node_role: monitoring

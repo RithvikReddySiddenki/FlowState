@@ -1,0 +1,28 @@
+name: flowstate-data
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: flowstate
+      POSTGRES_DB: flowstate
+      POSTGRES_PASSWORD: {{ flowstate_db_password | to_json }}
+    ports: ["{{ flowstate_bind_address }}:5432:5432"]
+    volumes: ["postgres_data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flowstate -d flowstate"]
+      interval: 5s
+      retries: 20
+    restart: unless-stopped
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes", "--protected-mode", "no"]
+    ports: ["{{ flowstate_bind_address }}:6379:6379"]
+    volumes: ["redis_data:/data"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 20
+    restart: unless-stopped
+volumes:
+  postgres_data:
+  redis_data:

@@ -1,0 +1,8 @@
+global:
+  scrape_interval: 15s
+scrape_configs:
+  - job_name: flowstate-api
+    metrics_path: /metrics
+    static_configs: [{targets: ["api:8000"]}]
+  - job_name: flowstate-operations
+    static_configs: [{targets: ["operations-exporter:9101"]}]

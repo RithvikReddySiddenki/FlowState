@@ -1,0 +1,32 @@
+# Isolated local validation: Compose >=2.24.4, synthetic settings, no Google access.
+# Use with compose.yml and docker-compose.dev.yml, project flowstate-validation.
+services:
+  migrate:
+    env_file: !reset []
+    environment:
+      SESSION_SECRET: synthetic-container-validation-secret-only
+  api:
+    env_file: !reset []
+    ports: !override ["127.0.0.1:18000:8000"]
+    environment:
+      SESSION_SECRET: synthetic-container-validation-secret-only
+      FRONTEND_URL: http://localhost:13000
+      GOOGLE_CLIENT_ID: ""
+      GOOGLE_CLIENT_SECRET: ""
+      GOOGLE_REDIRECT_URI: ""
+  worker:
+    env_file: !reset []
+    environment:
+      SESSION_SECRET: synthetic-container-validation-secret-only
+      FLOWSTATE_VALIDATION: "1"
+      PYTHONPATH: /app:/smoke
+    volumes:
+      - ./tests:/smoke/tests:ro
+  scheduler:
+    env_file: !reset []
+    environment:
+      SESSION_SECRET: synthetic-container-validation-secret-only
+  web:
+    ports: !override ["127.0.0.1:13000:3000"]
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:18000

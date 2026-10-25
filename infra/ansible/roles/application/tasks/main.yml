@@ -1,0 +1,47 @@
+- name: Restrict this automatic deployment role to the synthetic lab
+  ansible.builtin.assert:
+    that: [flowstate_lab | default(false) | bool]
+    fail_msg: Review production secrets, TLS and deployment approval before adapting this lab role.
+- name: Check out the reviewed application revision
+  ansible.builtin.git:
+    repo: https://github.com/RithvikReddySiddenki/FlowState.git
+    dest: /opt/flowstate/release
+    version: "{{ flowstate_git_ref }}"
+    force: false
+  register: release_checkout
+- name: Render private lab environment
+  ansible.builtin.template:
+    src: environment.j2
+    dest: /opt/flowstate/release/.env
+    mode: '0600'
+  no_log: true
+  register: app_environment
+- name: Copy API environment securely
+  ansible.builtin.copy:
+    src: /opt/flowstate/release/.env
+    dest: /opt/flowstate/release/apps/api/.env
+    remote_src: true
+    mode: '0600'
+  no_log: true
+- name: Install lab external-service Compose configuration
+  ansible.builtin.template:
+    src: compose.yml.j2
+    dest: /opt/flowstate/release/compose.lab.yml
+    mode: '0600'
+  register: lab_compose
+- name: Check running application services
+  ansible.builtin.command: docker compose -f compose.yml -f compose.lab.yml ps --services --status running
+  args:
+    chdir: /opt/flowstate/release
+  changed_when: false
+  register: app_running
+- name: Build and deploy the isolated lab
+  ansible.builtin.command: docker compose -f compose.yml -f compose.lab.yml up --build -d --wait --wait-timeout 240
+  args:
+    chdir: /opt/flowstate/release
+  when: release_checkout.changed or app_environment.changed or lab_compose.changed or (['api', 'worker', 'scheduler', 'web', 'nginx', 'operations-exporter'] | difference(app_running.stdout_lines) | length > 0)
+  changed_when: true
+- name: Verify application reaches database VM
+  ansible.builtin.uri:
+    url: http://127.0.0.1:8080/api/health/ready
+    status_code: 200

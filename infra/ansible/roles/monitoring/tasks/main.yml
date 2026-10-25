@@ -1,0 +1,31 @@
+- name: Require isolated lab settings
+  ansible.builtin.assert:
+    that: [flowstate_lab | default(false) | bool]
+- name: Check out monitoring definitions
+  ansible.builtin.git:
+    repo: https://github.com/RithvikReddySiddenki/FlowState.git
+    dest: /opt/flowstate/release
+    version: "{{ flowstate_git_ref }}"
+    force: false
+  register: monitoring_release
+- name: Render private monitoring Compose
+  ansible.builtin.template:
+    src: compose.yml.j2
+    dest: /opt/flowstate/compose.monitoring.yml
+    mode: '0600'
+  no_log: true
+  register: monitoring_compose
+- name: Render cross-VM scrape configuration
+  ansible.builtin.template:
+    src: prometheus.yml.j2
+    dest: /opt/flowstate/prometheus.yml
+    mode: '0644'
+  register: monitoring_targets
+- name: Inspect running monitoring services
+  ansible.builtin.command: docker compose -f /opt/flowstate/compose.monitoring.yml ps --services --status running
+  changed_when: false
+  register: monitoring_running
+- name: Deploy or update monitoring
+  ansible.builtin.command: docker compose -f /opt/flowstate/compose.monitoring.yml up -d
+  when: monitoring_release.changed or monitoring_compose.changed or monitoring_targets.changed or (['grafana', 'prometheus'] | difference(monitoring_running.stdout_lines) | length > 0)
+  changed_when: true

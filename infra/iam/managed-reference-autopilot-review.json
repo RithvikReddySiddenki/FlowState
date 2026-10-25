@@ -1,0 +1,463 @@
+{
+  "review_status": "DO_NOT_ATTACH_WITHOUT_ADMINISTRATOR_REFINEMENT",
+  "generator": "iam-policy-autopilot 0.3.0",
+  "input": "Resource types/actions only; all planned values removed; synthetic account 123456789012; telemetry disabled",
+  "limitation": "Provider-handler overapproximation includes unnecessary actions and wildcard resources. This is not a least-privilege or apply-ready policy.",
+  "Policies": [
+    {
+      "Policy": {
+        "Id": "IamPolicyAutopilot",
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": [
+              "ec2:AssignIpv6Addresses",
+              "ec2:AssignPrivateIpAddresses",
+              "ec2:AssociateIamInstanceProfile",
+              "ec2:AssociateSubnetCidrBlock",
+              "ec2:AttachInternetGateway",
+              "ec2:AuthorizeSecurityGroupEgress",
+              "ec2:AuthorizeSecurityGroupIngress",
+              "ec2:CreateInternetGateway",
+              "ec2:CreateRoute",
+              "ec2:CreateRouteTable",
+              "ec2:CreateSecurityGroup",
+              "ec2:CreateSubnet",
+              "ec2:CreateVpc",
+              "ec2:DescribeInstanceAttribute",
+              "ec2:DescribeVpcAttribute",
+              "ec2:DisassociateIamInstanceProfile",
+              "ec2:DisassociateSubnetCidrBlock",
+              "ec2:EnableVgwRoutePropagation",
+              "ec2:GetPasswordData",
+              "ec2:ModifyInstanceAttribute",
+              "ec2:ModifyInstanceCapacityReservationAttributes",
+              "ec2:ModifyInstanceCpuOptions",
+              "ec2:ModifyInstanceCreditSpecification",
+              "ec2:ModifyInstanceMaintenanceOptions",
+              "ec2:ModifyInstanceMetadataOptions",
+              "ec2:ModifyNetworkInterfaceAttribute",
+              "ec2:ModifyPrivateDnsNameOptions",
+              "ec2:ModifySubnetAttribute",
+              "ec2:ModifyVolume",
+              "ec2:ModifyVpcAttribute",
+              "ec2:MonitorInstances",
+              "ec2:ReplaceIamInstanceProfileAssociation",
+              "ec2:RevokeSecurityGroupEgress",
+              "ec2:RevokeSecurityGroupIngress",
+              "ec2:StartInstances",
+              "ec2:StopInstances",
+              "ec2:UnassignIpv6Addresses",
+              "ec2:UnassignPrivateIpAddresses",
+              "ec2:UnmonitorInstances"
+            ],
+            "Resource": [
+              "arn:aws:ec2::123456789012:ipam-pool/*",
+              "arn:aws:ec2:us-east-2:123456789012:capacity-reservation/*",
+              "arn:aws:ec2:us-east-2:123456789012:instance/*",
+              "arn:aws:ec2:us-east-2:123456789012:internet-gateway/*",
+              "arn:aws:ec2:us-east-2:123456789012:ipv6pool-ec2/*",
+              "arn:aws:ec2:us-east-2:123456789012:network-interface/*",
+              "arn:aws:ec2:us-east-2:123456789012:route-table/*",
+              "arn:aws:ec2:us-east-2:123456789012:security-group-rule/*",
+              "arn:aws:ec2:us-east-2:123456789012:security-group/*",
+              "arn:aws:ec2:us-east-2:123456789012:subnet/*",
+              "arn:aws:ec2:us-east-2:123456789012:volume/*",
+              "arn:aws:ec2:us-east-2:123456789012:vpc/*",
+              "arn:aws:ec2:us-east-2:123456789012:vpn-gateway/*",
+              "arn:aws:license-manager:us-east-2:123456789012:license-configuration:*",
+              "arn:aws:resource-groups:us-east-2:123456789012:group/*"
+            ]
+          },
+          {
+            "Effect": "Allow",
+            "Action": [
+              "ec2:AssociateRouteTable",
+              "ec2:CreateTags",
+              "ec2:DeleteTags",
+              "ec2:DescribeIamInstanceProfileAssociations",
+              "ec2:DescribeImages",
+              "ec2:DescribeInstanceCreditSpecifications",
+              "ec2:DescribeInstanceTypes",
+              "ec2:DescribeInstances",
+              "ec2:DescribeInternetGateways",
+              "ec2:DescribeLaunchTemplateVersions",
+              "ec2:DescribeLaunchTemplates",
+              "ec2:DescribeNetworkAcls",
+              "ec2:DescribeNetworkInterfaces",
+              "ec2:DescribeRouteTables",
+              "ec2:DescribeSecurityGroups",
+              "ec2:DescribeSpotInstanceRequests",
+              "ec2:DescribeSubnets",
+              "ec2:DescribeTags",
+              "ec2:DescribeVolumes",
+              "ec2:DescribeVolumesModifications",
+              "ec2:DescribeVpcs",
+              "ec2:RunInstances"
+            ],
+            "Resource": [
+              "*"
+            ]
+          },
+          {
+            "Effect": "Allow",
+            "Action": [
+              "elasticache:AddTagsToResource",
+              "elasticache:CreateReplicationGroup",
+              "elasticache:ListTagsForResource",
+              "elasticache:RemoveTagsFromResource"
+            ],
+            "Resource": [
+              "*"
+            ]
+          },
+          {
+            "Effect": "Allow",
+            "Action": [
+              "elasticache:CreateCacheSubnetGroup",
+              "elasticache:DescribeCacheClusters",
+              "elasticache:DescribeCacheSubnetGroups",
+              "elasticache:DescribeGlobalReplicationGroups",
+              "elasticache:DescribeReplicationGroups"
+            ],
+            "Resource": [
+              "arn:aws:elasticache::123456789012:globalreplicationgroup:*",
+              "arn:aws:elasticache:us-east-2:123456789012:cluster:*",
+              "arn:aws:elasticache:us-east-2:123456789012:replicationgroup:*",
+              "arn:aws:elasticache:us-east-2:123456789012:subnetgroup:*"
+            ]
+          },
+          {
+            "Effect": "Allow",
+            "Action": [
+              "elasticloadbalancing:AddTags",
+              "elasticloadbalancing:DescribeCapacityReservation",
+              "elasticloadbalancing:DescribeLoadBalancerAttributes",
+              "elasticloadbalancing:DescribeLoadBalancers",
+              "elasticloadbalancing:DescribeTags",
+              "elasticloadbalancing:DescribeTargetGroupAttributes",
+              "elasticloadbalancing:DescribeTargetGroups",
+              "elasticloadbalancing:DescribeTargetHealth",
+              "elasticloadbalancing:RemoveTags"
+            ],
+            "Resource": [
+              "*"
+            ]
+          },
+          {
+            "Effect": "Allow",
+            "Action": [
+              "elasticloadbalancing:CreateLoadBalancer",
+              "elasticloadbalancing:CreateTargetGroup",
+              "elasticloadbalancing:ModifyLoadBalancerAttributes",
+              "elasticloadbalancing:ModifyTargetGroupAttributes",
+              "elasticloadbalancing:RegisterTargets"
+            ],
+            "Resource": [
+              "arn:aws:elasticloadbalancing:us-east-2:123456789012:loadbalancer/*",
+              "arn:aws:elasticloadbalancing:us-east-2:123456789012:targetgroup/*/*"
+            ]
+          },
+          {
+            "Effect": "Allow",
+            "Action": [
+              "elasticloadbalancing:ModifyCapacityReservation",
+              "elasticloadbalancing:ModifyIpPools",
+              "elasticloadbalancing:SetIpAddressType",
+              "elasticloadbalancing:SetSecurityGroups",
+              "elasticloadbalancing:SetSubnets"
+            ],
+            "Resource": [
+              "arn:aws:elasticloadbalancing:us-east-2:123456789012:loadbalancer/app/*/*",
+              "arn:aws:elasticloadbalancing:us-east-2:123456789012:loadbalancer/gwy/*/*",
+              "arn:aws:elasticloadbalancing:us-east-2:123456789012:loadbalancer/net/*/*"
+            ]
+          },
+          {
+            "Effect": "Allow",
+            "Action": [
+              "iam:AddRoleToInstanceProfile",
+              "iam:AttachRolePolicy",
+              "iam:CreateInstanceProfile",
+              "iam:CreateRole",
+              "iam:DeleteRole",
+              "iam:DeleteRolePolicy",
+              "iam:DetachRolePolicy",
+              "iam:GetInstanceProfile",
+              "iam:GetRole",
+              "iam:GetRolePolicy",
+              "iam:ListAttachedRolePolicies",
+              "iam:ListInstanceProfileTags",
+              "iam:ListInstanceProfilesForRole",
+              "iam:ListMFADeviceTags",
+              "iam:ListOpenIDConnectProviderTags",
+              "iam:ListPolicyTags",
+              "iam:ListRolePolicies",
+              "iam:ListRoleTags",
+              "iam:ListSAMLProviderTags",
+              "iam:ListServerCertificateTags",
+              "iam:ListUserTags",
+              "iam:PutRolePolicy",
+              "iam:RemoveRoleFromInstanceProfile",
+              "iam:TagInstanceProfile",
+              "iam:TagMFADevice",
+              "iam:TagOpenIDConnectProvider",
+              "iam:TagPolicy",
+              "iam:TagRole",
+              "iam:TagSAMLProvider",
+              "iam:TagServerCertificate",
+              "iam:TagUser",
+              "iam:UntagInstanceProfile",
+              "iam:UntagMFADevice",
+              "iam:UntagOpenIDConnectProvider",
+              "iam:UntagPolicy",
+              "iam:UntagRole",
+              "iam:UntagSAMLProvider",
+              "iam:UntagServerCertificate",
+              "iam:UntagUser"
+            ],
+            "Resource": [
+              "arn:aws:iam::123456789012:instance-profile/*",
+              "arn:aws:iam::123456789012:mfa/*",
+              "arn:aws:iam::123456789012:oidc-provider/*",
+              "arn:aws:iam::123456789012:policy/*",
+              "arn:aws:iam::123456789012:role/*",
+              "arn:aws:iam::123456789012:saml-provider/*",
+              "arn:aws:iam::123456789012:server-certificate/*",
+              "arn:aws:iam::123456789012:user/*"
+            ]
+          }
+        ]
+      },
+      "PolicyType": "Identity"
+    },
+    {
+      "Policy": {
+        "Id": "IamPolicyAutopilot",
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": [
+              "iam:PassRole"
+            ],
+            "Resource": [
+              "*"
+            ],
+            "Condition": {
+              "StringEquals": {
+                "iam:PassedToService": [
+                  "rds-preview.amazonaws.com",
+                  "rds.amazonaws.com"
+                ]
+              }
+            }
+          },
+          {
+            "Effect": "Allow",
+            "Action": [
+              "iam:PassRole"
+            ],
+            "Resource": [
+              "*"
+            ],
+            "Condition": {
+              "StringEquals": {
+                "iam:PassedToService": [
+                  "rds.amazonaws.com"
+                ]
+              }
+            }
+          },
+          {
+            "Effect": "Allow",
+            "Action": [
+              "iam:PassRole"
+            ],
+            "Resource": [
+              "*"
+            ],
+            "Condition": {
+              "StringEquals": {
+                "iam:PassedToService": [
+                  "ec2.amazonaws.com"
+                ]
+              }
+            }
+          },
+          {
+            "Effect": "Allow",
+            "Action": [
+              "iam:PassRole"
+            ],
+            "Resource": [
+              "arn:aws:iam::123456789012:role/*"
+            ],
+            "Condition": {
+              "StringEquals": {
+                "iam:PassedToService": [
+                  "ec2.amazonaws.com"
+                ]
+              }
+            }
+          },
+          {
+            "Effect": "Allow",
+            "Action": [
+              "kms:Decrypt",
+              "kms:GenerateDataKey"
+            ],
+            "Resource": [
+              "arn:aws:kms:us-east-2:123456789012:key/*"
+            ],
+            "Condition": {
+              "StringEquals": {
+                "kms:ViaService": [
+                  "secretsmanager.us-east-2.amazonaws.com"
+                ]
+              }
+            }
+          },
+          {
+            "Effect": "Allow",
+            "Action": [
+              "logs:CreateLogGroup",
+              "logs:PutRetentionPolicy",
+              "logs:TagLogGroup"
+            ],
+            "Resource": [
+              "arn:aws:logs:us-east-2:123456789012:log-group:*"
+            ]
+          },
+          {
+            "Effect": "Allow",
+            "Action": [
+              "logs:DescribeLogGroups",
+              "logs:ListTagsForResource",
+              "logs:TagResource",
+              "logs:UntagResource"
+            ],
+            "Resource": [
+              "*"
+            ]
+          },
+          {
+            "Effect": "Allow",
+            "Action": [
+              "rds:AddTagsToResource",
+              "rds:CreateDBInstance",
+              "rds:CreateDBInstanceReadReplica",
+              "rds:ListTagsForResource",
+              "rds:ModifyDBInstance",
+              "rds:RemoveTagsFromResource",
+              "rds:RestoreDBInstanceFromDBSnapshot",
+              "rds:RestoreDBInstanceFromS3",
+              "rds:RestoreDBInstanceToPointInTime"
+            ],
+            "Resource": [
+              "*"
+            ]
+          },
+          {
+            "Effect": "Allow",
+            "Action": [
+              "rds:CreateDBSubnetGroup",
+              "rds:CreateTenantDatabase",
+              "rds:DescribeDBInstances",
+              "rds:DescribeDBSubnetGroups",
+              "rds:RebootDBInstance"
+            ],
+            "Resource": [
+              "arn:aws:rds:us-east-2:123456789012:db:*",
+              "arn:aws:rds:us-east-2:123456789012:subgrp:*",
+              "arn:aws:rds:us-east-2:123456789012:tenant-database:*"
+            ]
+          },
+          {
+            "Effect": "Allow",
+            "Action": [
+              "secretsmanager:CreateSecret",
+              "secretsmanager:DescribeSecret",
+              "secretsmanager:GetResourcePolicy",
+              "secretsmanager:PutResourcePolicy",
+              "secretsmanager:ReplicateSecretToRegions",
+              "secretsmanager:TagResource",
+              "secretsmanager:UntagResource"
+            ],
+            "Resource": [
+              "arn:aws:secretsmanager:us-east-2:123456789012:secret:*"
+            ]
+          }
+        ]
+      },
+      "PolicyType": "Identity"
+    }
+  ],
+  "Warnings": [
+    {
+      "WarningType": "WildcardResource",
+      "Location": {
+        "PolicyIndex": 0,
+        "StatementIndex": 1
+      },
+      "Message": "Statement could not be scoped to specific resources and uses Resource \"*\". Review whether broad resource access is intended."
+    },
+    {
+      "WarningType": "WildcardResource",
+      "Location": {
+        "PolicyIndex": 0,
+        "StatementIndex": 2
+      },
+      "Message": "Statement could not be scoped to specific resources and uses Resource \"*\". Review whether broad resource access is intended."
+    },
+    {
+      "WarningType": "WildcardResource",
+      "Location": {
+        "PolicyIndex": 0,
+        "StatementIndex": 4
+      },
+      "Message": "Statement could not be scoped to specific resources and uses Resource \"*\". Review whether broad resource access is intended."
+    },
+    {
+      "WarningType": "WildcardResource",
+      "Location": {
+        "PolicyIndex": 1,
+        "StatementIndex": 0
+      },
+      "Message": "Statement could not be scoped to specific resources and uses Resource \"*\". Review whether broad resource access is intended."
+    },
+    {
+      "WarningType": "WildcardResource",
+      "Location": {
+        "PolicyIndex": 1,
+        "StatementIndex": 1
+      },
+      "Message": "Statement could not be scoped to specific resources and uses Resource \"*\". Review whether broad resource access is intended."
+    },
+    {
+      "WarningType": "WildcardResource",
+      "Location": {
+        "PolicyIndex": 1,
+        "StatementIndex": 2
+      },
+      "Message": "Statement could not be scoped to specific resources and uses Resource \"*\". Review whether broad resource access is intended."
+    },
+    {
+      "WarningType": "WildcardResource",
+      "Location": {
+        "PolicyIndex": 1,
+        "StatementIndex": 6
+      },
+      "Message": "Statement could not be scoped to specific resources and uses Resource \"*\". Review whether broad resource access is intended."
+    },
+    {
+      "WarningType": "WildcardResource",
+      "Location": {
+        "PolicyIndex": 1,
+        "StatementIndex": 7
+      },
+      "Message": "Statement could not be scoped to specific resources and uses Resource \"*\". Review whether broad resource access is intended."
+    }
+  ]
+}

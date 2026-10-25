@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: worker}
+  template:
+    metadata:
+      labels: {app: worker}
+    spec:
+      terminationGracePeriodSeconds: 660
+      automountServiceAccountToken: false
+      securityContext: {runAsUser: 1000, runAsGroup: 1000, runAsNonRoot: true, fsGroup: 1000}
+      initContainers:
+        - name: wait-migrations
+          image: flowstate-api:local
+          imagePullPolicy: IfNotPresent
+          command: [python, -m, apps.api.wait_for_migrations]
+          envFrom: [{configMapRef: {name: flowstate}}, {secretRef: {name: flowstate}}]
+          resources:
+            requests: {cpu: 25m, memory: 64Mi}
+            limits: {cpu: 250m, memory: 128Mi}
+      containers:
+        - name: worker
+          image: flowstate-api:local
+          imagePullPolicy: IfNotPresent
+          command: [celery, -A, "apps.api.tasks:celery", worker, --loglevel=WARNING, --concurrency=1]
+          envFrom: [{configMapRef: {name: flowstate}}, {secretRef: {name: flowstate}}]
+          securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+          volumeMounts: [{name: tmp, mountPath: /tmp}]
+          resources:
+            requests: {cpu: 100m, memory: 128Mi}
+            limits: {cpu: "1", memory: 768Mi}
+          readinessProbe:
+            exec:
+              command: [python, -c, "import os,redis; redis.Redis.from_url(os.environ['REDIS_URL']).ping()"]
+            periodSeconds: 10
+      volumes: [{name: tmp, emptyDir: {}}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scheduler
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector:
+    matchLabels: {app: scheduler}
+  template:
+    metadata:
+      labels: {app: scheduler}
+    spec:
+      automountServiceAccountToken: false
+      securityContext: {runAsUser: 1000, runAsGroup: 1000, runAsNonRoot: true, fsGroup: 1000}
+      initContainers:
+        - name: wait-migrations
+          image: flowstate-api:local
+          imagePullPolicy: IfNotPresent
+          command: [python, -m, apps.api.wait_for_migrations]
+          envFrom: [{configMapRef: {name: flowstate}}, {secretRef: {name: flowstate}}]
+          resources:
+            requests: {cpu: 25m, memory: 64Mi}
+            limits: {cpu: 250m, memory: 128Mi}
+      containers:
+        - name: scheduler
+          image: flowstate-api:local
+          imagePullPolicy: IfNotPresent
+          command: [celery, -A, "apps.api.tasks:celery", beat, --loglevel=WARNING, --schedule=/tmp/celerybeat]
+          envFrom: [{configMapRef: {name: flowstate}}, {secretRef: {name: flowstate}}]
+          securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+          volumeMounts: [{name: tmp, mountPath: /tmp}]
+          resources:
+            requests: {cpu: 25m, memory: 64Mi}
+            limits: {cpu: 500m, memory: 192Mi}
+      volumes: [{name: tmp, emptyDir: {}}]

@@ -1,0 +1,24 @@
+name: flowstate-monitoring
+services:
+  prometheus:
+    image: prom/prometheus:v3.15.1
+    ports: ["{{ flowstate_monitor_host }}:9090:9090"]
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    restart: unless-stopped
+  grafana:
+    image: grafana/grafana:13.2.4
+    ports: ["{{ flowstate_monitor_host }}:3000:3000"]
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: {{ flowstate_grafana_password | to_json }}
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./release/infra/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./release/infra/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    restart: unless-stopped
+volumes:
+  prometheus_data:
+  grafana_data:

@@ -1,0 +1,91 @@
+# Optional controller for the isolated kind lab; not a production Helm replacement.
+apiVersion: v1
+kind: ServiceAccount
+metadata: {name: traefik, namespace: flowstate}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata: {name: traefik, namespace: flowstate}
+rules:
+  - apiGroups: [""]
+    resources: [services, endpoints, secrets]
+    verbs: [get, list, watch]
+  - apiGroups: [discovery.k8s.io]
+    resources: [endpointslices]
+    verbs: [get, list, watch]
+  - apiGroups: [networking.k8s.io]
+    resources: [ingresses]
+    verbs: [get, list, watch]
+  - apiGroups: [networking.k8s.io]
+    resources: [ingresses/status]
+    verbs: [update]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata: {name: traefik, namespace: flowstate}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: traefik}
+subjects: [{kind: ServiceAccount, name: traefik, namespace: flowstate}]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata: {name: flowstate-traefik}
+rules:
+  - apiGroups: [networking.k8s.io]
+    resources: [ingressclasses]
+    verbs: [get, list, watch]
+  - apiGroups: [""]
+    resources: [nodes]
+    verbs: [get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata: {name: flowstate-traefik}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: flowstate-traefik}
+subjects: [{kind: ServiceAccount, name: traefik, namespace: flowstate}]
+---
+apiVersion: networking.k8s.io/v1
+kind: IngressClass
+metadata: {name: traefik}
+spec: {controller: traefik.io/ingress-controller}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: traefik, namespace: flowstate}
+spec:
+  selector: {app: traefik}
+  ports: [{port: 80, targetPort: 8000}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: traefik, namespace: flowstate}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: traefik}
+  template:
+    metadata:
+      labels: {app: traefik}
+    spec:
+      serviceAccountName: traefik
+      securityContext: {runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532, fsGroup: 65532}
+      containers:
+        - name: traefik
+          image: traefik:v3.7.16
+          args:
+            - --entrypoints.web.address=:8000
+            - --providers.kubernetesingress=true
+            - --providers.kubernetesingress.ingressclass=traefik
+            - --providers.kubernetesingress.namespaces=flowstate
+            - --api.dashboard=false
+            - --entrypoints.health.address=:8082
+            - --ping=true
+            - --ping.entrypoint=health
+          securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: {drop: [ALL]}}
+          ports: [{containerPort: 8000}, {containerPort: 8082}]
+          resources:
+            requests: {cpu: 50m, memory: 64Mi}
+            limits: {cpu: 500m, memory: 256Mi}
+          readinessProbe: {httpGet: {path: /ping, port: 8082}, periodSeconds: 5}
+          livenessProbe: {httpGet: {path: /ping, port: 8082}, initialDelaySeconds: 15}
+          volumeMounts: [{name: tmp, mountPath: /tmp}]
+      volumes: [{name: tmp, emptyDir: {}}]

@@ -1,0 +1,5 @@
+name              = "flowstate-managed"
+region            = "us-east-1"
+enable_public_web = false
+# Supply redis_auth_token securely through your local secret workflow, never Git.
+# certificate_arn is needed only after domain/certificate/publication approval.

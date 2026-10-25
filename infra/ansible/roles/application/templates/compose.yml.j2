@@ -1,0 +1,48 @@
+services:
+  db:
+    profiles: [embedded-data]
+  redis:
+    profiles: [embedded-data]
+  migrate:
+    depends_on: !reset []
+    environment: &external
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+  api:
+    environment:
+      <<: *external
+      ENABLE_METRICS: "true"
+    depends_on: !override
+      migrate:
+        condition: service_completed_successfully
+    ports: ["{{ flowstate_app_host }}:8000:8000"]
+  worker:
+    environment: *external
+    depends_on: !override
+      migrate:
+        condition: service_completed_successfully
+  scheduler:
+    environment: *external
+    depends_on: !override
+      migrate:
+        condition: service_completed_successfully
+  nginx:
+    # App gateway is separate from the private metrics listeners above.
+    image: nginx:1.28-alpine
+    ports: ["8080:80"] # Guest NAT/host-only VM; host forwarding is loopback.
+    volumes: ["./infra/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro"]
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+  operations-exporter:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment: *external
+    command: [python, -m, apps.api.metrics_exporter]
+    ports: ["{{ flowstate_app_host }}:9101:9101"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully

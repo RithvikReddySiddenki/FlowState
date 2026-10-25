@@ -148,3 +148,27 @@ apps/api/.venv/
 # Python cache files
 __pycache__/
 *.pyc
+*.db
+*.sqlite*
+.pytest_cache/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfplan.json
+*.plan.json
+*-plan.json
+plan.json
+*.tfvars.json
+crash.log
+crash.*.log
+.terraform/
+*.tfvars
+!*.tfvars.example
+backups/
+.tools/
+.ruff_cache/
+**/.vagrant/
+**/.secrets/
+*.auto.pkrvars.hcl
+*.pem
+*.key

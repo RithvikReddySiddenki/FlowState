@@ -1,0 +1,19 @@
+services:
+  api:
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ./apps/api:/app/apps/api:ro
+    command: ["uvicorn", "apps.api.main:app", "--host", "0.0.0.0", "--reload", "--no-proxy-headers", "--no-access-log"]
+  web:
+    build:
+      target: development
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+      WATCHPACK_POLLING: "true"
+    command: ["npm", "run", "dev", "--", "--hostname", "0.0.0.0", "--webpack"]
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - ./apps/web/app:/app/app
+      - ./apps/web/lib:/app/lib

@@ -1,0 +1,14 @@
+{
+  "uid": "flowstate-operations", "title": "FlowState operations", "schemaVersion": 41,
+  "version": 1, "refresh": "10s", "time": {"from": "now-15m", "to": "now"},
+  "panels": [
+    {"id": 1, "title": "API requests / second", "type": "timeseries", "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8}, "datasource": {"type": "prometheus", "uid": "flowstate-prom"}, "targets": [{"refId": "A", "expr": "sum(rate(flowstate_http_requests_total[5m]))"}]},
+    {"id": 2, "title": "API p95 latency", "type": "timeseries", "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8}, "datasource": {"type": "prometheus", "uid": "flowstate-prom"}, "targets": [{"refId": "A", "expr": "histogram_quantile(0.95, sum by(le) (rate(flowstate_http_duration_seconds_bucket[5m])))"}], "fieldConfig": {"defaults": {"unit": "s"}}},
+    {"id": 3, "title": "API server errors / second", "type": "timeseries", "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8}, "datasource": {"type": "prometheus", "uid": "flowstate-prom"}, "targets": [{"refId": "A", "expr": "sum(rate(flowstate_http_requests_total{status=~\"5..\"}[5m]))"}]},
+    {"id": 4, "title": "Worker / sync activity", "type": "timeseries", "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8}, "datasource": {"type": "prometheus", "uid": "flowstate-prom"}, "targets": [{"refId": "A", "expr": "flowstate_sync_runs", "legendFormat": "{{status}}"}]},
+    {"id": 5, "title": "Latest sync wall duration", "type": "stat", "gridPos": {"x": 0, "y": 16, "w": 12, "h": 6}, "datasource": {"type": "prometheus", "uid": "flowstate-prom"}, "targets": [{"refId": "A", "expr": "flowstate_sync_last_duration_seconds"}], "fieldConfig": {"defaults": {"unit": "s"}}},
+    {"id": 6, "title": "Failed syncs", "type": "stat", "gridPos": {"x": 12, "y": 16, "w": 12, "h": 6}, "datasource": {"type": "prometheus", "uid": "flowstate-prom"}, "targets": [{"refId": "A", "expr": "flowstate_sync_runs{status=\"failed\"}"}]},
+    {"id": 7, "title": "Ready queue messages / recoveries", "type": "timeseries", "gridPos": {"x": 0, "y": 22, "w": 12, "h": 8}, "datasource": {"type": "prometheus", "uid": "flowstate-prom"}, "targets": [{"refId": "A", "expr": "flowstate_queue_messages", "legendFormat": "Queue"}, {"refId": "B", "expr": "flowstate_sync_recoveries", "legendFormat": "Recoveries"}]},
+    {"id": 8, "title": "Application / dependency health", "type": "stat", "gridPos": {"x": 12, "y": 22, "w": 12, "h": 8}, "datasource": {"type": "prometheus", "uid": "flowstate-prom"}, "targets": [{"refId": "A", "expr": "up", "legendFormat": "{{job}}"}, {"refId": "B", "expr": "flowstate_database_available", "legendFormat": "Database"}, {"refId": "C", "expr": "flowstate_broker_available", "legendFormat": "Broker"}], "fieldConfig": {"defaults": {"min": 0, "max": 1, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}}}}
+  ]
+}

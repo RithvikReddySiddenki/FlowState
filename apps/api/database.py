@@ -5,7 +5,6 @@ from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
-
 # Finds the .env file located in the same folder as this file.
 env_file = Path(__file__).resolve().parent / ".env"
 load_dotenv(env_file)

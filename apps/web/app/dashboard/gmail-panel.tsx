@@ -8,23 +8,35 @@ type Run = { id: string; status: string; processed: number; imported: number; er
 type Connection = { connected: boolean; last_synced_at: string | null; latest_run: Run | null };
 export type Message = { id: number; subject: string; sender: string; snippet: string; confidence: number; explanation: string; detected_status: string | null; review_required: boolean };
 
+type ReviewPage = { items: Message[]; total: number; offset: number; limit: number };
+const REVIEW_PAGE_SIZE = 25;
+async function loadReviewPage(offset = 0): Promise<ReviewPage> {
+  const page = await api<ReviewPage>(`/gmail/review/page?limit=${REVIEW_PAGE_SIZE}&offset=${offset}`);
+  if (!page.items.length && offset > 0) {
+    const last = Math.max(0, Math.floor((page.total - 1) / REVIEW_PAGE_SIZE) * REVIEW_PAGE_SIZE);
+    return api<ReviewPage>(`/gmail/review/page?limit=${REVIEW_PAGE_SIZE}&offset=${last}`);
+  }
+  return page;
+}
+
 export function GmailPanel({ applications, onSynced }: { applications: { id: number; company: string; role: string }[]; onSynced: () => Promise<void> }) {
   const router = useRouter();
   const [connection, setConnection] = useState<Connection | null>(null);
-  const [review, setReview] = useState<Message[]>([]);
+  const [reviewPage, setReviewPage] = useState<ReviewPage>({ items: [], total: 0, offset: 0, limit: REVIEW_PAGE_SIZE });
+  const review = reviewPage.items;
   const [run, setRun] = useState<Run | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
   const reload = useCallback(async () => {
-    const [value, messages] = await Promise.all([api<Connection>("/gmail/connection"), api<Message[]>("/gmail/review")]);
-    setConnection(value); setRun(value.latest_run); setReview(messages);
-  }, []);
+    const [value, messages] = await Promise.all([api<Connection>("/gmail/connection"), loadReviewPage(reviewPage.offset)]);
+    setConnection(value); setRun(value.latest_run); setReviewPage(messages);
+  }, [reviewPage.offset]);
 
   useEffect(() => {
     let live = true;
-    Promise.all([api<Connection>("/gmail/connection"), api<Message[]>("/gmail/review")])
-      .then(([value, messages]) => { if (live) { setConnection(value); setRun(value.latest_run); setReview(messages); } })
+    Promise.all([api<Connection>("/gmail/connection"), loadReviewPage()])
+      .then(([value, messages]) => { if (live) { setConnection(value); setRun(value.latest_run); setReviewPage(messages); } })
       .catch(() => { if (live) setError("Gmail connection could not be loaded."); });
     return () => { live = false; };
   }, []);
@@ -60,9 +72,15 @@ export function GmailPanel({ applications, onSynced }: { applications: { id: num
         <button className="text-rose-300 underline" disabled={busy} onClick={() => { if (window.confirm("Permanently delete your FlowState account and all application data? Gmail access will be revoked.")) void perform(async () => { await api("/account", { method: "DELETE" }); router.push("/"); }); }}>Delete account</button>
       </div>
     </div>
-    {run && <p className="mt-4" role="status">Sync {run.status} · {run.processed} processed · {run.imported} imported{run.error ? ` · ${run.error}` : ""}</p>}
+    {run && <p className="mt-4" role="status">Sync {run.status} · {run.processed} checked · {run.imported} new recruiting messages{run.error ? ` · ${run.error}` : ""}</p>}
+    {run?.status === "completed" && <p className="mt-1 text-sm text-slate-400">Previously stored messages are skipped. Messages needing review are listed below.</p>}
     {error && <p role="alert" className="mt-4 text-rose-300">{error}</p>}
-    {review.length > 0 && <details className="mt-5"><summary className="cursor-pointer text-amber-300">{review.length} messages need review (up to 200 shown)</summary>
+    {review.length > 0 && <details className="mt-5"><summary className="cursor-pointer text-amber-300">{reviewPage.total} messages need review</summary>
+      <nav aria-label="Review messages" className="mt-4 flex flex-wrap items-center gap-4">
+        <button disabled={busy || reviewPage.offset === 0} className="rounded border border-slate-600 px-3 py-2 disabled:opacity-50" onClick={() => void perform(async () => setReviewPage(await loadReviewPage(Math.max(0, reviewPage.offset - REVIEW_PAGE_SIZE))))}>Previous messages</button>
+        <p role="status" className="text-sm text-slate-400">Showing {reviewPage.offset + 1}-{reviewPage.offset + review.length} of {reviewPage.total}</p>
+        <button disabled={busy || reviewPage.offset + review.length >= reviewPage.total} className="rounded border border-slate-600 px-3 py-2 disabled:opacity-50" onClick={() => void perform(async () => setReviewPage(await loadReviewPage(reviewPage.offset + REVIEW_PAGE_SIZE)))}>Next messages</button>
+      </nav>
       <div className="mt-4 space-y-4">{review.map(message => <form key={message.id} className="rounded-lg border border-slate-700 p-4" onSubmit={event => {
         event.preventDefault(); const values = new FormData(event.currentTarget);
         void perform(async () => { await api(`/gmail/review/${message.id}`, { method: "PATCH", body: JSON.stringify({ application_id: Number(values.get("application")), apply_status: values.get("apply") === "on" }) }); await reload(); await onSynced(); });

@@ -171,3 +171,28 @@ printing tokens/account details, prepare/review plan inputs and state protection
 then run authenticated Terraform plans. No apply, paid resources, domain changes,
 public exposure or main merge is authorized. Vagrant/provider verification and
 public HTTPS/ACME/PubSub remain separate external dependencies.
+
+
+## Dashboard screenshot follow-up
+
+A user screenshot showed a capped review queue and a company identity including
+application-progress prose. No screenshot, real message content or account email
+was copied to the repository. Reproduced the parsing issue using synthetic
+Example Labs subjects; known status clauses such as "is underway" and "is under
+review" now terminate company extraction. Existing application records and stored
+mail remain unchanged; only future ingestion uses the new parser. The known idle
+local Windows worker was gracefully restarted and responds with the updated code.
+
+Added owner-scoped GET /gmail/review/page with an exact pending total, bounded
+limit/offset and deterministic timestamp/ID ordering; the existing array endpoint
+remains compatible. Dashboard/settings show 25 reviews at a time with previous/
+next controls and the full total, reaching messages beyond the old200 display cap.
+Sync copy now says checked/new recruiting messages and explains skipped stored
+messages so a zero-import incremental run is not confused with an empty mailbox.
+
+Validation:51 SQLite and51 isolated PostgreSQL tests pass, including a205-message
+ownership/tie-order/pagination fixture and narrative-suffix classifier regression.
+Frontend lint/TypeScript/production build pass;12 browser checks pass across
+desktop/mobile including navigation to messages201-205. Current work: commit/push
+this change and inspect remote CI. AWS SSO/profile/region remains the selected
+external prerequisite; no cloud resources or real-data reprocessing authorized.

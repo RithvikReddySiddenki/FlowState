@@ -45,3 +45,14 @@ implemented but disabled and tested with synthetic fixtures only. See
 [push setup](GMAIL_PUSH.md) and [verification preparation](GOOGLE_VERIFICATION.md).
 Real local login, consent, refresh and polling sync have passed; public push
 delivery and production restricted-scope verification remain pending.
+
+
+Review messages are paginated in the dashboard/settings, with an exact owned
+pending total and25 entries per page. GET /gmail/review/page accepts limit1-200
+and nonnegative offset, returning items/total/offset/limit in stable received-at
+and ID descending order. The older /gmail/review array response remains for
+compatibility. Confirming associations refreshes the current page. Sync counters
+refer to that run's checked messages and newly stored recruiting metadata; an
+incremental zero does not erase prior activity. Parser changes apply to future
+messages; stored IDs are deduplicated rather than silently reprocessed, and user
+corrections remain authoritative.

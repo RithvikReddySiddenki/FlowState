@@ -2,9 +2,9 @@ from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -176,6 +176,30 @@ def review(database: Session = Depends(get_db), user: User = Depends(current_use
             .limit(200)
         )
     ]
+
+
+@router.get("/gmail/review/page")
+def review_page(
+    limit: int = Query(25, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    database: Session = Depends(get_db),
+    user: User = Depends(current_user),
+):
+    pending = (GmailMessage.user_id == user.id, GmailMessage.review_required.is_(True))
+    total = database.scalar(select(func.count()).select_from(GmailMessage).where(*pending))
+    rows = database.scalars(
+        select(GmailMessage)
+        .where(*pending)
+        .order_by(GmailMessage.received_at.desc(), GmailMessage.id.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    return {
+        "items": [message_response(row) for row in rows],
+        "total": total,
+        "offset": offset,
+        "limit": limit,
+    }
 
 
 def revoke_and_clear(database, user):

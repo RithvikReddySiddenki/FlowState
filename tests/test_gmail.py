@@ -277,6 +277,34 @@ class GmailTests(ApiFixture):
             404,
         )
 
+    def test_review_pagination_counts_all_owned_messages_with_stable_order(self):
+        with self.sessions() as database:
+            for index in range(205):
+                # Missing identity deliberately sends each synthetic message to review.
+                incoming = message(str(index))
+                incoming["threadId"] = f"unmatched-{index}"
+                incoming["payload"]["headers"][0]["value"] = "Your application update"
+                ingest(database, 1, incoming)
+            incoming = message("other-owner")
+            incoming["payload"]["headers"][0]["value"] = "Your application update"
+            ingest(database, 2, incoming)
+            database.commit()
+        first = self.client.get("/gmail/review/page?limit=25&offset=0").json()
+        last = self.client.get("/gmail/review/page?limit=25&offset=200").json()
+        self.assertEqual(first["total"], 205)
+        self.assertEqual(len(first["items"]), 25)
+        self.assertEqual(len(last["items"]), 5)
+        self.assertGreater(first["items"][0]["id"], first["items"][1]["id"])
+        self.assertFalse(
+            {row["id"] for row in first["items"]} & {row["id"] for row in last["items"]}
+        )
+        self.assertEqual(self.client.get("/gmail/review/page?offset=-1").status_code, 422)
+        self.assertEqual(self.client.get("/gmail/review/page?limit=201").status_code, 422)
+        self.sign_in(2)
+        self.assertEqual(self.client.get("/gmail/review/page").json()["total"], 1)
+        self.client.cookies.clear()
+        self.assertEqual(self.client.get("/gmail/review/page").status_code, 401)
+
     def test_gmail_api_pagination_and_metadata_only(self):
         http = MagicMock()
         http.post.return_value = httpx.Response(200, json={"access_token": "synthetic"})

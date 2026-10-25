@@ -50,7 +50,7 @@ def classify(
     if re.search(r"unsubscribe|weekly digest|job alerts?|newsletter|promotional offer", lower):
         return Classification(None, None, None, 0.0, "Bulk mail is not an application event")
     identity = re.search(
-        r"(?:application|applied)\s+for\s+(?:the\s+)?(.{2,100}?)\s+(?:position\s+)?at\s+([\w][\w &.'-]{1,80}?)(?=[.!?\n]|$)",
+        r"(?:application|applied)\s+for\s+(?:the\s+)?(.{2,100}?)\s+(?:position\s+)?at\s+([\w][\w &.'-]{1,80}?)(?=\s+(?:is (?:underway|under review|being reviewed|being processed)|has been (?:received|submitted)|was (?:received|submitted))\b|[.!?\n]|$)",
         subject,
         re.I,
     )

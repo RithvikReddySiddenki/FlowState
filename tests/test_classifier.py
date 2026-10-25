@@ -29,6 +29,19 @@ class ClassifierTests(unittest.TestCase):
         self.assertIsNone(result.company)
         self.assertTrue(result.review_required)
 
+    def test_company_excludes_application_progress_clause(self):
+        for suffix in ("is underway", "is under review", "is being reviewed", "has been received"):
+            with self.subTest(suffix=suffix):
+                result = classify(
+                    f"Application for Engineer at Example Labs {suffix}",
+                    "ats@example.test",
+                    "We are reviewing your application.",
+                )
+                self.assertEqual(result.company, "Example Labs")
+                self.assertEqual(result.role, "Engineer")
+                self.assertEqual(result.status, Stage.REVIEW)
+                self.assertFalse(result.review_required)
+
     def test_bulk_mail_and_false_positives(self):
         for text in [
             "Weekly digest: interview tips",

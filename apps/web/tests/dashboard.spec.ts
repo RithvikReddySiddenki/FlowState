@@ -13,7 +13,7 @@ test.beforeEach(async ({ page }) => {
     if (path === "/auth/me") { body = authenticated ? { user: { email: "demo@example.test" } } : { detail: "Sign in" }; status = authenticated ? 200 : 401; }
     else if (path === "/auth/logout") { authenticated = false; }
     else if (path === "/gmail/connection") body = { connected: false, last_synced_at: null, latest_run: null };
-    else if (path === "/gmail/review") body = [];
+    else if (path === "/gmail/review/page") body = { items: [], total: 0, offset: 0, limit: 25 };
     else if (path.endsWith("/history")) body = [{ id: 1, current_status: "Under Review", source: "manual", created_at: "2026-10-24T12:00:00Z" }];
     else if (path.endsWith("/messages")) body = [];
     else if (path === "/applications" && request.method() === "GET") body = applications;
@@ -83,4 +83,30 @@ test("expired Gmail mutations return the workspace to sign in", async ({ page })
   await page.getByRole("button", { name: "Sync / retry Gmail" }).click();
   await expect(page.getByRole("link", { name: "Sign in with Google" })).toBeVisible();
   await expect(page.getByRole("article")).toHaveCount(0);
+});
+
+
+test("review queue shows the full count and navigates beyond 200 messages", async ({ page }) => {
+  await page.route("http://localhost:8000/gmail/review/page?**", route => {
+    const url = new URL(route.request().url());
+    const offset = Number(url.searchParams.get("offset") || 0);
+    const items = Array.from({ length: Math.min(25, 205 - offset) }, (_, index) => ({
+      id: offset + index + 1, subject: `Synthetic review ${offset + index + 1}`,
+      sender: "ats@example.test", snippet: "Synthetic recruiting update", confidence: 0.55,
+      explanation: "Application identity is incomplete", detected_status: "Under Review", review_required: true,
+    }));
+    return route.fulfill({ json: { items, total: 205, offset, limit: 25 } });
+  });
+  await page.goto("/dashboard");
+  await page.getByText("205 messages need review", { exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Synthetic review 1", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Previous messages" })).toBeDisabled();
+  for (let pageIndex = 1; pageIndex <= 8; pageIndex++) {
+    await page.getByRole("button", { name: "Next messages" }).click();
+    await expect(page.getByText(`Showing ${pageIndex * 25 + 1}-${Math.min((pageIndex + 1) * 25, 205)} of 205`, { exact: true })).toBeVisible();
+  }
+  await expect(page.getByRole("heading", { name: "Synthetic review 205", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Next messages" })).toBeDisabled();
+  await page.getByRole("button", { name: "Previous messages" }).click();
+  await expect(page.getByText("Showing 176-200 of 205", { exact: true })).toBeVisible();
 });

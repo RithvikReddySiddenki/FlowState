@@ -7,6 +7,8 @@ from uuid import UUID, uuid4
 
 from fastapi import Request
 
+from apps.api.metrics import observe
+
 logger = logging.getLogger("flowstate")
 if not logger.handlers:
     handler = logging.StreamHandler()
@@ -31,13 +33,16 @@ async def request_logging(request: Request, call_next):
         return response
     finally:
         route = request.scope.get("route")
+        route_name = getattr(route, "path", "unmatched")
+        elapsed = time.monotonic() - started
+        observe(request.method, route_name, status, elapsed)
         logger.info(
             json.dumps(
                 {
                     "event": "http_request",
                     "request_id": request_id,
                     "method": request.method,
-                    "route": getattr(route, "path", "unmatched"),
+                    "route": route_name,
                     "status": status,
                     "duration_ms": round((time.monotonic() - started) * 1000, 2),
                 }

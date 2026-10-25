@@ -28,6 +28,7 @@ server {
     add_header X-Content-Type-Options nosniff always;
     add_header X-Frame-Options DENY always;
     add_header Referrer-Policy strict-origin-when-cross-origin always;
+    location = /api/metrics { return 404; }
     location /api/ {
         proxy_pass http://flowstate_api/;
         proxy_set_header Host $host;

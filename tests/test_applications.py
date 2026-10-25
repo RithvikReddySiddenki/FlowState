@@ -7,6 +7,7 @@ import logging
 import os
 import unittest
 from datetime import datetime, timedelta, timezone
+from unittest.mock import patch
 
 os.environ["DATABASE_URL"] = "sqlite://"
 os.environ["SESSION_SECRET"] = "synthetic-test-secret-" * 3
@@ -218,6 +219,16 @@ class ApplicationTests(ApiFixture):
             response = self.client.get("/health/live?code=synthetic-private-code")
         self.assertIn("x-request-id", response.headers)
         self.assertNotIn("synthetic-private-code", " ".join(logs.output))
+
+    def test_optional_metrics_use_route_templates_without_private_query_data(self):
+        self.assertEqual(self.client.get("/metrics").status_code, 404)
+        with patch.dict(os.environ, {"ENABLE_METRICS": "true"}):
+            self.client.get("/applications/999?code=synthetic-private-metric")
+            response = self.client.get("/metrics")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("/applications/{application_id}", response.text)
+        self.assertNotIn("synthetic-private-metric", response.text)
+        self.assertNotIn("/applications/999", response.text)
 
 
 if __name__ == "__main__":

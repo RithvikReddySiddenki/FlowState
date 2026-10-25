@@ -40,4 +40,8 @@ Production use of Gmail restricted scopes may require Google verification and
 a security assessment. Neither verification nor approval is claimed. Before
 public release, publish an accurate privacy policy and scope justification,
 document retention/contact/support, and complete Google's applicable process.
-No optional Pub/Sub receiver or Gmail watch is implemented yet.
+Optional authenticated Pub/Sub, watch/history, renewal and polling recovery are
+implemented but disabled and tested with synthetic fixtures only. See
+[push setup](GMAIL_PUSH.md) and [verification preparation](GOOGLE_VERIFICATION.md).
+Real local login, consent, refresh and polling sync have passed; public push
+delivery and production restricted-scope verification remain pending.

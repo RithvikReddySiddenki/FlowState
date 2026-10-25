@@ -1,0 +1,9 @@
+apiVersion: 1
+datasources:
+  - name: FlowState Prometheus
+    uid: flowstate-prom
+    type: prometheus
+    url: http://prometheus:9090
+    access: proxy
+    isDefault: true
+    editable: false

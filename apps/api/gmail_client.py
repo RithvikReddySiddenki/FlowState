@@ -92,3 +92,59 @@ class GmailClient:
 
     def close(self):
         self.http.close()
+
+    def watch(self, topic):
+        response = self.http.post(
+            "https://gmail.googleapis.com/gmail/v1/users/me/watch",
+            json={"topicName": topic},
+        )
+        self.check(response)
+        return response.json()
+
+    def history_messages(self, history_id, since, known_ids):
+        """Advance only after the caller durably ingests every page.
+
+        An expired cursor (404) falls back to the bounded polling overlap.
+        Added messages are fetched as metadata; the classifier rejects unrelated mail.
+        """
+        page = None
+        seen = set(known_ids)
+        while True:
+            params = {
+                "startHistoryId": history_id,
+                "historyTypes": "messageAdded",
+                "maxResults": 100,
+            }
+            if page:
+                params["pageToken"] = page
+            response = self.get(
+                "https://gmail.googleapis.com/gmail/v1/users/me/history", params=params
+            )
+            if response.status_code == 404:
+                self.completed_history_id = None
+                yield from self.messages(since, known_ids=known_ids)
+                return
+            self.check(response)
+            data = response.json()
+            for change in data.get("history", []):
+                for added in change.get("messagesAdded", []):
+                    identifier = added["message"]["id"]
+                    if identifier in seen:
+                        continue
+                    seen.add(identifier)
+                    detail = self.get(
+                        f"https://gmail.googleapis.com/gmail/v1/users/me/messages/{identifier}",
+                        params=[
+                            ("format", "metadata"),
+                            ("metadataHeaders", "Subject"),
+                            ("metadataHeaders", "From"),
+                        ],
+                    )
+                    if detail.status_code == 404:
+                        continue
+                    self.check(detail)
+                    yield detail.json()
+            page = data.get("nextPageToken")
+            if not page:
+                self.completed_history_id = data["historyId"]
+                return

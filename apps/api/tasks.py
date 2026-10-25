@@ -23,7 +23,8 @@ celery.conf.update(
     task_time_limit=600,
     broker_connection_retry_on_startup=True,
     beat_schedule={
-        "recover-interrupted-syncs": {"task": "flowstate.recover_syncs", "schedule": 60.0}
+        "recover-interrupted-syncs": {"task": "flowstate.recover_syncs", "schedule": 60.0},
+        "gmail-watch-maintenance": {"task": "flowstate.maintain_watches", "schedule": 900.0},
     },
 )
 
@@ -79,7 +80,22 @@ def _sync_gmail(self, run_id: str):
                     )
                 )
             )
-            for message in client.messages(since, known_ids=known_ids):
+            push_enabled = os.getenv("ENABLE_GMAIL_PUSH", "false").lower() == "true"
+            topic = os.getenv("GMAIL_PUSH_TOPIC", "")
+            initial_watch = None
+            if push_enabled and topic and not credential.history_id:
+                try:
+                    initial_watch = client.watch(topic)
+                except (GmailFailure, httpx.TransportError):
+                    # Watch provisioning trouble must not disable ordinary sync.
+                    initial_watch = None
+                # First sync still polls the historical window before history deltas.
+                messages = client.messages(since, known_ids=known_ids)
+            elif push_enabled and credential.history_id:
+                messages = client.history_messages(credential.history_id, since, known_ids)
+            else:
+                messages = client.messages(since, known_ids=known_ids)
+            for message in messages:
                 # A disconnect deletes the run. Never recreate deleted user data.
                 database.expire_all()
                 run = database.scalar(select(SyncRun).where(SyncRun.id == run_id).with_for_update())
@@ -96,6 +112,13 @@ def _sync_gmail(self, run_id: str):
             if run is None or credential is None:
                 return
             credential.last_synced_at = started
+            if initial_watch:
+                credential.history_id = initial_watch["historyId"]
+                credential.watch_expires_at = datetime.fromtimestamp(
+                    int(initial_watch["expiration"]) / 1000, timezone.utc
+                )
+            if push_enabled and hasattr(client, "completed_history_id"):
+                credential.history_id = client.completed_history_id
             run.status = "completed"
             run.error = None
             run.finished_at = datetime.now(timezone.utc)
@@ -124,6 +147,52 @@ def _sync_gmail(self, run_id: str):
                 raise self.retry(
                     exc=GmailFailure(True), countdown=min(30 * 2**self.request.retries, 480)
                 )
+        finally:
+            if client:
+                client.close()
+
+
+@celery.task(name="flowstate.maintain_watches")
+def maintain_watches():
+    """Renew daily and poll every 15m to cover dropped notifications/cursor expiry."""
+    if os.getenv("ENABLE_GMAIL_PUSH", "false").lower() != "true":
+        return
+    from apps.api.gmail_routes import start_sync
+    from apps.api.ingestion import utc
+    from apps.api.models import User
+
+    with SessionLocal() as database:
+        ids = list(database.scalars(select(OAuthCredential.user_id)))
+    for user_id in ids:
+        client = None
+        try:
+            with SessionLocal() as database:
+                credential = database.get(OAuthCredential, user_id)
+                user = database.get(User, user_id)
+                if credential is None or user is None:
+                    continue
+                now = datetime.now(timezone.utc)
+                if credential.watch_expires_at is None or utc(
+                    credential.watch_expires_at
+                ) < now + timedelta(days=6):
+                    client = GmailClient(
+                        credential.encrypted_refresh_token,
+                        os.getenv("GOOGLE_CLIENT_ID", ""),
+                        os.getenv("GOOGLE_CLIENT_SECRET", ""),
+                    )
+                    try:
+                        watch = client.watch(os.environ["GMAIL_PUSH_TOPIC"])
+                        credential.watch_expires_at = datetime.fromtimestamp(
+                            int(watch["expiration"]) / 1000, timezone.utc
+                        )
+                        # Never replace an existing cursor on renewal: it can skip mail.
+                        database.commit()
+                    except (GmailFailure, httpx.TransportError, KeyError):
+                        pass
+                start_sync(database, user)
+        except Exception:
+            # Sanitized failure only; next tick retries, manual polling stays usable.
+            continue
         finally:
             if client:
                 client.close()

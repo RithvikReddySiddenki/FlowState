@@ -94,6 +94,9 @@ class OAuthCredential(Base):
     encrypted_refresh_token: Mapped[str] = mapped_column(Text)
     scope: Mapped[str] = mapped_column(Text)
     last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    history_id: Mapped[str | None] = mapped_column(String(255))
+    watch_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    notified_history_id: Mapped[str | None] = mapped_column(String(255))
 
 
 class GmailMessage(Base):

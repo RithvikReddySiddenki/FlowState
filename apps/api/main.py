@@ -10,16 +10,18 @@ from authlib.integrations.starlette_client import OAuth
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse, Response
 from sqlalchemy import delete, select, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from starlette.middleware.sessions import SessionMiddleware
 
+from apps.api import metrics
 from apps.api.applications import router as applications_router
 from apps.api.database import SessionLocal, get_db
 from apps.api.dependencies import current_user
 from apps.api.gmail_client import GMAIL_SCOPE
+from apps.api.gmail_push import router as gmail_push_router
 from apps.api.gmail_routes import router as gmail_router
 from apps.api.logging_config import request_logging
 from apps.api.models import AuthSession, OAuthCredential, User
@@ -42,6 +44,15 @@ app = FastAPI(title="FlowState API")
 app.middleware("http")(request_logging)
 app.include_router(applications_router)
 app.include_router(gmail_router)
+app.include_router(gmail_push_router)
+
+
+@app.get("/metrics", include_in_schema=False)
+def operational_metrics():
+    if not metrics.enabled():
+        raise HTTPException(404, "Not found")
+    content, content_type = metrics.render()
+    return Response(content, media_type=content_type)
 
 
 @app.exception_handler(SQLAlchemyError)
@@ -55,6 +66,8 @@ async def protect_mutations(request: Request, call_next):
     # Browsers always supply Origin on cross-origin fetch mutations. Reject
     # absent/foreign origins instead of relying solely on SameSite cookies.
     if request.method in {"POST", "PATCH", "PUT", "DELETE"}:
+        if request.url.path == "/gmail/push" and request.method == "POST":
+            return await call_next(request)
         if request.headers.get("origin") != frontend_url:
             return JSONResponse({"detail": "Untrusted request origin"}, status_code=403)
     return await call_next(request)

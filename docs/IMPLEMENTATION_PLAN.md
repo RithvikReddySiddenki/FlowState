@@ -19,8 +19,8 @@ Checklist (unchecked means acceptance criteria remain unmet):
 - [ ] 10. Simple EC2 Terraform, formatting, validation, plan
 - [ ] 11. Repeatable EC2 deployment and recovery (approval before provisioning)
 - [ ] 12. Nginx routing, TLS, renewal (domain/certificates required)
-- [ ] 13. GitHub Actions checks, optional protected deployment
-- [ ] 14. Integration, security, reliability, browser end-to-end tests
+- [x] 13. GitHub Actions checks, optional protected deployment
+- [x] 14. Integration, security, reliability, browser end-to-end tests
 - [x] 15. Accurate README, developer guide, diagrams, screenshots if verified
 - [ ] 16. Vagrant three-VM lab and verification
 - [ ] 17. Idempotent Ansible roles, secure configuration, deployment

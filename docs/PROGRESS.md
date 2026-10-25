@@ -30,39 +30,45 @@ https://github.com/RithvikReddySiddenki/FlowState/actions/runs/40154147095
 
 Pushed additional checkpoints: 6c5ca3c VM automation; b515adf verified Kubernetes;
 ed2f791 managed AWS configuration; 77bbde0 monitoring/optional push;
-aca85a0 expanded CI and release documentation.
-Expanded run: https://github.com/RithvikReddySiddenki/FlowState/actions/runs/40155870949
-Backend, frontend, both Terraform matrices, infrastructure and Kubernetes pass;
-container monitoring is completing. Final documentation/Ansible state checks
-will be committed next. Use git log/origin to identify the newest release head.
+aca85a0 expanded CI/docs; b74bbf5 lab state recovery/runbooks;
+8414370 Pub/Sub Base64URL compatibility. All checkpoints pushed successfully.
+Final implementation checkpoint: 8414370, pushed successfully.
+All seven push and draft-PR checks passed, including backend/frontend,
+containers/monitoring, both Terraform configurations, infrastructure tooling
+and actual Kubernetes deployment:
+https://github.com/RithvikReddySiddenki/FlowState/actions/runs/40156318878
+Push run also passed: https://github.com/RithvikReddySiddenki/FlowState/actions/runs/40156314821
+Draft PR: https://github.com/RithvikReddySiddenki/FlowState/pull/1
+The following documentation-only checkpoint records those results without
+rerunning the unchanged implementation checks.
 User-created .vscode/ remains untracked and MUST NOT be modified/staged.
 
 ## Milestones
 
-| # | Milestone | Status / evidence |
-|---|---|---|
-| 1 | Foundation | Verified locally: startup, models, config, health and migrations |
-| 2 | Owned CRUD | Verified SQLite/PostgreSQL and actual desktop/mobile CRUD |
-| 3 | Google OAuth | Real login; revocable sessions, state/origin/ownership tests |
-| 4 | Gmail | Real consent, refresh, live sync and persisted metadata |
-| 5 | Classification | Synthetic recruiting scenarios, provenance and corrections pass |
-| 6 | Dashboard | Real API UI, settings, expiry, loading, activity and deadlines |
-| 7 | Workers | Real Redis/Celery success/failure, duplicate/order/recovery checks |
-| 8 | Docker | Full dev/prod-shaped health, routing and persistent-volume checks |
-| 9 | Environments | Independent overrides, secure config, migration/backup tooling |
-| 10 | Simple Terraform | fmt/init/validate pass; authenticated AWS plan pending |
-| 11 | EC2 deployment | Scripts prepared/syntax checked; real host unavailable |
-| 12 | Nginx/TLS | Actual proxy/DNS recovery pass; public domain/cert/renewal pending |
-| 13 | CI/CD | Expanded checks green except container job finishing; no auto deploy |
-| 14 | Hardening | Tests/audits/secret checks and final container regression pass |
-| 15 | Docs | README, diagrams, synthetic screenshots, runbooks and verification drafts |
-| 16 | Vagrant | Three VMs; Ruby syntax passes; provider/runtime unavailable |
-| 17 | Ansible | All roles syntax pass; VM provisioning/idempotence unverified |
-| 18 | Packer | fmt/full validate pass; monitoring prerequisites prepared; no paid build |
-| 19 | Kubernetes | Actual kind storage/migration/workloads/Traefik/API/queue/browser pass |
-| 20 | Managed AWS | Separate two-AZ network/RDS/cache/ALB/secrets/logs validate; no plan/apply |
-| 21 | Monitoring | Actual private Prometheus targets, health gauges and Grafana verified |
-| 22 | Gmail push | Implemented and synthetic tests pass; public/cloud delivery unverified |
+| # | Milestone | Status | Evidence / remaining | Checkpoint |
+|---|---|---|---|---|
+| 1 | Foundation | COMPLETE | Local startup/models/config/health/migrations | ec742c5 |
+| 2 | Owned CRUD | COMPLETE | SQLite/PostgreSQL and desktop/mobile real CRUD | ec742c5 |
+| 3 | Google OAuth | COMPLETE | Real login, revocable sessions, state/origin/ownership | ec742c5 |
+| 4 | Gmail | COMPLETE | Real consent/refresh/sync; metadata persisted | a0d607d, 722b4bc |
+| 5 | Classification | COMPLETE | Recruiting fixtures, provenance and manual precedence | a0d607d |
+| 6 | Dashboard | COMPLETE | Responsive API UI, settings/expiry/loading/activity | 722b4bc |
+| 7 | Workers | COMPLETE | Real queue success/failure/order/dedupe/recovery | 03ff039 |
+| 8 | Docker | COMPLETE | Dev/prod-shaped health/proxy/persistent volumes | 03ff039 |
+| 9 | Environments | COMPLETE | Overrides, secure config, backup/migration tooling | 03ff039 |
+| 10 | Simple Terraform | IN PROGRESS | fmt/init/validate pass; authenticated account plan pending | 03ff039 |
+| 11 | EC2 deployment | IMPLEMENTED - UNVERIFIED | Scripts syntax pass; actual host deployment pending | 03ff039 |
+| 12 | Nginx/TLS | IN PROGRESS | Actual proxy/DNS recovery pass; domain/cert/renewal pending | 03ff039 |
+| 13 | CI/CD | COMPLETE | All seven remote checks pass; no auto deployment | aca85a0, 8414370 |
+| 14 | Hardening | COMPLETE | Local tests/audits/privacy/reliability checks; cloud review separate | 77bbde0 |
+| 15 | Documentation | COMPLETE | README, diagrams, screenshots, runbooks, privacy drafts | aca85a0, b74bbf5 |
+| 16 | Vagrant | IMPLEMENTED - UNVERIFIED | Three VMs, Ruby syntax; provider/runtime unavailable | 6c5ca3c |
+| 17 | Ansible | IMPLEMENTED - UNVERIFIED | Role syntax pass; actual provisioning/second-run check pending | 6c5ca3c, b74bbf5 |
+| 18 | Packer | IMPLEMENTED - UNVERIFIED | fmt/full validate, monitor prerequisites; paid build pending | 6c5ca3c, aca85a0 |
+| 19 | Kubernetes | COMPLETE | Actual kind storage/migrations/workloads/Traefik/API/queue/browser | b515adf |
+| 20 | Managed AWS | IMPLEMENTED - UNVERIFIED | Private two-AZ data/ALB/secrets/logs validate; no account plan/apply | ed2f791 |
+| 21 | Monitoring | COMPLETE | Private Prometheus targets/health and Grafana runtime verified | 77bbde0 |
+| 22 | Gmail push | IMPLEMENTED - UNVERIFIED | Signed notification/history/renewal/fallback tests; live delivery pending | 77bbde0, 8414370 |
 
 ## Verification
 
@@ -109,6 +115,16 @@ left unchanged; restrict before calling that manual setup hardened.
   project IAM; production restricted-scope verification is separately pending.
   Follow MANUAL_STEPS.md, GMAIL_PUSH.md and GOOGLE_VERIFICATION.md.
 
-Next exact step: finish checking expanded remote CI and prepare the authorized
-draft PR. External VM/cloud/TLS/PubSub requirements above remain pending; no
-production deployment or main merge has occurred.
+Next exact external step: choose an AWS account/region and configure SSO locally,
+then review an authenticated Terraform plan and cost estimate before asking for
+resource approval. Independently install the Vagrant/provider to verify VM roles.
+Public TLS/PubSub need domain/project setup and separate publication approval.
+Draft PR #1 is prepared; do not merge automatically. No production deployment,
+paid resource provisioning, public exposure or main merge has occurred.
+
+Last verified milestones: private observability (21) and expanded CI (13).
+Optional push (22) is implemented/synthetically tested with live prerequisites
+pending. Last pushed implementation commit: 8414370; documentation checkpoint
+follows in git log. No implementation edits remain uncommitted. User .vscode/
+is the only unrelated untracked work. External checkpoints remain above.
+

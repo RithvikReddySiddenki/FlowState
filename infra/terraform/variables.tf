@@ -18,7 +18,7 @@ variable "admin_cidr" {
   type        = string
   description = "Approved single IPv4 administrator address as /32."
   validation {
-    condition     = can(cidrhost(var.admin_cidr, 0)) && can(regex("/32$", var.admin_cidr)) && var.admin_cidr != "0.0.0.0/32"
+    condition     = can(cidrnetmask(var.admin_cidr)) && can(regex("/32$", var.admin_cidr)) && var.admin_cidr != "0.0.0.0/32"
     error_message = "SSH requires a specific approved IPv4 /32."
   }
 }

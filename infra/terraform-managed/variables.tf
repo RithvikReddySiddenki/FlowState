@@ -23,8 +23,8 @@ variable "enable_public_web" {
   type    = bool
   default = false
   validation {
-    condition     = !var.enable_public_web || var.certificate_arn != null
-    error_message = "Public web requires an explicitly approved ACM certificate."
+    condition     = !var.enable_public_web || can(regex("^arn:aws(-us-gov|-cn)?:acm:[a-z0-9-]+:[0-9]{12}:certificate/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.certificate_arn))
+    error_message = "Public web requires an explicitly approved, valid ACM certificate ARN."
   }
 }
 variable "redis_auth_token" {

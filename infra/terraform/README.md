@@ -26,3 +26,9 @@ management; resource deletion is not a backup strategy.
 The separate [managed-services architecture](../terraform-managed/README.md)
 prepares private RDS/ElastiCache, ALB, runtime secrets and CloudWatch. Both
 configurations validate; neither has been planned/applied against an AWS account.
+
+Run `terraform test` after init for four synthetic-provider plan tests covering
+default closed web ingress, explicit web opt-in, encrypted retained storage/IMDSv2,
+and invalid administrator CIDRs. The mocks never contact AWS and do not establish
+that your account, quotas, AMI or deployment will work. An IPv6 CIDR cannot be
+used in the administrator IPv4 field; provide the approved single IPv4 /32.

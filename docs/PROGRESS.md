@@ -1,6 +1,6 @@
 # FlowState progress
 
-Updated 2026-10-24 (America/New_York). Branch: feat/flowstate-complete-platform.
+Updated 2026-10-25 (America/New_York). Branch: feat/flowstate-complete-platform.
 Never merge main, provision paid resources or publicly expose services without approval.
 
 ## Current state
@@ -193,6 +193,34 @@ messages so a zero-import incremental run is not confused with an empty mailbox.
 Validation:51 SQLite and51 isolated PostgreSQL tests pass, including a205-message
 ownership/tie-order/pagination fixture and narrative-suffix classifier regression.
 Frontend lint/TypeScript/production build pass;12 browser checks pass across
-desktop/mobile including navigation to messages201-205. Current work: commit/push
-this change and inspect remote CI. AWS SSO/profile/region remains the selected
+desktop/mobile including navigation to messages201-205. Checkpoint a0af89b was committed/pushed and all seven CI jobs passed:
+https://github.com/RithvikReddySiddenki/FlowState/actions/runs/40157880712 . AWS SSO/profile/region remains the selected
 external prerequisite; no cloud resources or real-data reprocessing authorized.
+
+
+## Terraform plan safety checks (2026-10-25)
+
+After the owner asked to continue, rechecked the review-fix CI: all seven jobs
+passed. AWS CLI remains absent (PATH/system/per-user) and no AWS configuration
+exists, so account-specific SSO plans remain externally blocked. No account
+identifiers, credentials or real plans were read/printed; no resources created.
+
+Added Terraform native plan tests using mock_provider aws and exclusively
+synthetic data. Four simple-EC2 scenarios cover default SSH-only ingress,
+explicit web opt-in, IMDSv2/encrypted retained disks and invalid CIDRs. Five managed
+scenarios cover private encrypted/redundant RDS/cache, backup/admin-secret settings,
+closed default listeners, upstream-only ingress, scoped runtime secret/log IAM,
+certificate requirements and weak broker-token rejection. All nine pass locally;
+both Terraform directories also pass fmt/validate. CI now runs these tests.
+
+The tests exposed real input-validation gaps: IPv6 /32 passed the variable's
+IPv4-admin validator (the AWS provider rejected it later), and an empty string
+satisfied the public certificate non-null check. Fixed the former with IPv4-only
+cidrnetmask validation and the latter with ACM ARN syntax validation. These checks
+do not verify a real certificate's existence, approval, region or ownership.
+Mock plans are not authenticated account plans or evidence of deployment.
+
+Current work: commit/push this Terraform checkpoint and inspect CI. Next external
+step is still AWS CLI installation and manual IAM Identity Center authentication;
+provide only profile name/region after login. No apply or paid build authorized.
+User .vscode/ remains unrelated/untracked; native app data and services retained.

@@ -37,6 +37,14 @@ No app secret versions are created by Terraform. Do not assume `sensitive` means
 the state is encrypted. Final snapshot names and retained disks need deliberate
 approved lifecycle management; do not bypass deletion protection casually.
 
+After init, `terraform test` runs five synthetic-provider plan scenarios without
+AWS credentials/API calls. Assertions cover private encrypted/HA data services,
+default closed web ingress, upstream security-group restrictions, narrowly scoped
+runtime secret/log permissions, compute storage/IMDSv2 and input rejection for
+missing/empty ACM ARNs or weak Redis tokens. These are configuration tests, not
+authenticated account plans or proof that a certificate exists/is approved.
+The public-web switch requires a syntactically valid ACM certificate ARN.
+
 
 After approval, the docker-compose.managed.yml override disables embedded data
 services, supplies external DB/broker URLs, binds Nginx to the approved private

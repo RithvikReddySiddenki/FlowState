@@ -1,4 +1,4 @@
-# Managed AWS architecture — no resources provisioned
+# Managed AWS architecture â€” no resources provisioned
 
 Separate from the simple EC2 configuration. A reusable two-AZ network module
 creates public app/ALB subnets and private data subnets. RDS PostgreSQL is private,
@@ -32,7 +32,7 @@ secure secret retrieval, backup/migration gates and actual health verification.
 
 IMPORTANT: the Redis auth-token argument is sensitive but is stored in Terraform
 state. Use a separately approved encrypted remote backend with locking and
-strict access before real planning/apply; never commit state or secret tfvars.
+strict access before planning with real secret values or applying; never commit state or secret tfvars.
 No app secret versions are created by Terraform. Do not assume `sensitive` means
 the state is encrypted. Final snapshot names and retained disks need deliberate
 approved lifecycle management; do not bypass deletion protection casually.
@@ -61,3 +61,11 @@ RDS. Approved managed deployment must take/verify a database backup, build the
 reviewed release, stop writers, run the migration service, start services and
 verify private ALB health before enabling the public listener. CloudWatch driver
 network access and IAM are required; actual cloud delivery remains unverified.
+
+
+Authenticated Ohio reference planning succeeded with flowstate-dev on2026-10-25.
+The plan uses a non-secret Redis placeholder, current-user-only local file ACLs,
+and closed public ingress. It is not apply-ready. See ../../docs/AWS_PLAN_REVIEW.md
+for30 proposed resources, deterministic costs, permission gaps and approval gates.
+Do not populate real secret values in local plan/state until protected storage
+and a reviewed secret-delivery process are established.

@@ -5,15 +5,17 @@ module "network" {
 resource "aws_security_group" "alb" {
   name_prefix = "${var.name}-alb-"
   vpc_id      = module.network.vpc_id
-  dynamic "ingress" {
-    for_each = var.enable_public_web ? [80, 443] : []
-    content {
-      from_port   = ingress.value
-      to_port     = ingress.value
-      protocol    = "tcp"
-      cidr_blocks = ["0.0.0.0/0"]
-    }
-  }
+  ingress = [for port in(var.enable_public_web ? [80, 443] : []) : {
+    description      = "Explicitly approved public web"
+    from_port        = port
+    to_port          = port
+    protocol         = "tcp"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = []
+    prefix_list_ids  = []
+    security_groups  = []
+    self             = false
+  }]
   egress {
     from_port   = 8080
     to_port     = 8080

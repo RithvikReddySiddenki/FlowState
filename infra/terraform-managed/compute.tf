@@ -35,6 +35,7 @@ resource "aws_instance" "app" {
   associate_public_ip_address = true
   vpc_security_group_ids      = [aws_security_group.app.id]
   iam_instance_profile        = aws_iam_instance_profile.app.name
+  credit_specification { cpu_credits = "standard" }
   metadata_options { http_tokens = "required" }
   root_block_device {
     encrypted             = true
@@ -47,6 +48,8 @@ resource "aws_instance" "app" {
     set -euo pipefail
     apt-get update
     apt-get install -y ca-certificates git curl
+    if ! snap list amazon-ssm-agent >/dev/null 2>&1; then snap install amazon-ssm-agent --classic; fi
+    systemctl enable --now snap.amazon-ssm-agent.amazon-ssm-agent.service
     install -d -m 0750 /opt/flowstate
     # Application/secret retrieval/deployment require an explicit reviewed release.
   USERDATA

@@ -1,5 +1,7 @@
-region            = "us-east-1"
+region            = "us-east-2"
 instance_type     = "t3.small"
-admin_cidr        = "192.0.2.10/32" # Documentation address; replace with approved administrator IP.
-ssh_public_key    = "ssh-ed25519 REPLACE_WITH_YOUR_PUBLIC_KEY"
+enable_admin_ssh  = false # Default: use SSM; no SSH key or administrator IP required.
+# For separately reviewed SSH opt-in, set enable_admin_ssh=true and both values:
+# admin_cidr     = "192.0.2.10/32" # Replace with approved administrator IPv4 /32.
+# ssh_public_key = "ssh-ed25519 REPLACE_WITH_YOUR_PUBLIC_KEY"
 enable_public_web = false

@@ -1,34 +1,40 @@
 # Initial EC2 deployment
 
-This creates a dedicated VPC, subnet, route, restricted SSH security group,
-encrypted persistent root disk, key pair and EC2 instance. Database/Redis ports
-are never opened. Web ingress defaults OFF. No application is auto-deployed.
-No IAM role is created because the base app requires no AWS API permissions.
-IMDSv2 is required; see [AWS metadata guidance](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-options.html).
+Default administration uses SSM with no inbound rules or SSH key. The proposed
+resources are a dedicated VPC/subnet/route/Internet Gateway, security group,
+IMDSv2 EC2 instance with an encrypted retained 30 GiB gp3 disk, and an EC2-only
+SSM role, managed-policy attachment and instance profile. Public web stays OFF;
+no application or credentials are auto-deployed. These are source definitions,
+not resources created in the account.
 
-Install Terraform, run `terraform fmt -check`, `terraform init -backend=false`
-and `terraform validate` here. Copy terraform.tfvars.example to ignored
-terraform.tfvars with your approved IP and PUBLIC key. Configure AWS access
-outside this repo, preferably `aws configure sso`, then `aws sso login`.
-Run `terraform plan` only with the intended profile/region and reviewed values.
-Never publish plan output or state; both can contain sensitive infrastructure data.
-For shared use configure a separately approved encrypted remote backend with
-locking. The local default is for evaluation, not team production state.
+The SSM policy is AmazonSSMManagedInstanceCore. The operator needs separately
+approved Session Manager permissions; the instance role does not grant them to
+the operator. User data ensures the Ubuntu SSM agent is enabled. T3 uses standard
+CPU credits to avoid surplus-credit fees; sustained CPU load can be throttled.
 
-STOP before apply: user must approve resources, estimated costs, public IP and
-the specific plan. Do not run destroy or disable prevent_destroy without approval.
-Even an idle instance incurs compute, EBS and public IPv4 charges; data transfer,
-snapshots and DNS/TLS operations may add costs. No price estimate or free-tier
-eligibility is assumed. Avoid a paid NAT/ALB for this single-host starting stage.
-The root disk is retained on instance termination and needs approved lifecycle
-management; resource deletion is not a backup strategy.
+Run terraform fmt -check -recursive, terraform init -backend=false,
+terraform validate and terraform test here. Five synthetic-provider plan tests
+cover closed default ingress, web/SSH opt-ins, storage/metadata/credit safeguards
+and invalid administrator CIDRs. These mocks do not contact AWS.
 
-The separate [managed-services architecture](../terraform-managed/README.md)
-prepares private RDS/ElastiCache, ALB, runtime secrets and CloudWatch. Both
-configurations validate; neither has been planned/applied against an AWS account.
+For account planning, set AWS_PROFILE=flowstate-dev and provide
+-var=region=us-east-2. The authenticated Ohio plan was verified with the browser-
+login profile. Never run apply without the owner's explicit approval of the
+specific plan, costs, deployment permissions and publication scope.
 
-Run `terraform test` after init for four synthetic-provider plan tests covering
-default closed web ingress, explicit web opt-in, encrypted retained storage/IMDSv2,
-and invalid administrator CIDRs. The mocks never contact AWS and do not establish
-that your account, quotas, AMI or deployment will work. An IPv6 CIDR cannot be
-used in the administrator IPv4 field; provide the approved single IPv4 /32.
+Optional SSH requires enable_admin_ssh=true plus an approved admin_cidr IPv4 /32
+and PUBLIC ssh_public_key. Omit both for SSM. Existing users upgrading from the
+old SSH-default configuration must review key-pair/ingress changes carefully;
+do not apply against existing state casually. Both access switches manage empty
+ingress explicitly when disabled so old inline rules are not left unmanaged.
+
+Private plan files live only under ignored .tools/aws-plans with current-user
+ACLs. Never publish raw plans, plan JSON, state or secret tfvars. A protected
+remote backend with locking is a separate approved prerequisite for deployment.
+No backend, IAM permission or cloud resource was created by planning.
+
+See ../../docs/AWS_PLAN_REVIEW.md for current Ohio costs, proposed resources,
+permission gaps and deployment gates. The separate ../terraform-managed
+configuration prepares RDS/Redis/ALB/secrets. Its reference plan uses a non-secret
+planning placeholder and is not apply-ready. Root disks are retained and
+prevent_destroy protects the instance; cleanup always needs separate approval.

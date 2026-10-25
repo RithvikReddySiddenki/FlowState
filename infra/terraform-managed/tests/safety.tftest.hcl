@@ -50,7 +50,7 @@ run "isolated_managed_data" {
     error_message = "The application may read only its runtime secret, never wildcard or RDS admin secrets."
   }
   assert {
-    condition     = aws_instance.app.metadata_options[0].http_tokens == "required" && aws_instance.app.root_block_device[0].encrypted && !aws_instance.app.root_block_device[0].delete_on_termination && aws_db_instance.postgres.manage_master_user_password && aws_db_instance.postgres.backup_retention_period >= 7
+    condition     = aws_instance.app.metadata_options[0].http_tokens == "required" && aws_instance.app.root_block_device[0].encrypted && !aws_instance.app.root_block_device[0].delete_on_termination && aws_instance.app.credit_specification[0].cpu_credits == "standard" && aws_db_instance.postgres.manage_master_user_password && aws_db_instance.postgres.backup_retention_period >= 7
     error_message = "Compute must require IMDSv2/encrypted retained storage, and RDS must manage its admin password and retain backups."
   }
 }

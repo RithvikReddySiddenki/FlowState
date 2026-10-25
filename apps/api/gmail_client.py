@@ -1,5 +1,6 @@
 """Gmail's official REST API over bounded HTTP requests (no bodies requested)."""
 
+import time
 from datetime import datetime, timezone
 
 import httpx
@@ -21,6 +22,7 @@ class GmailFailure(Exception):
 class GmailClient:
     def __init__(self, refresh_token: str, client_id: str, client_secret: str):
         self.http = httpx.Client(timeout=30)
+        self.next_request_at = 0.0
         try:
             response = self.http.post(
                 "https://oauth2.googleapis.com/token",
@@ -42,7 +44,17 @@ class GmailClient:
         if response.is_error:
             raise GmailFailure(response.status_code in {403, 429, 500, 502, 503, 504})
 
-    def messages(self, since: datetime | None):
+    def get(self, url, *, params):
+        # Pace metadata requests as well as retrying provider-side rate limits.
+        # This runs only in background workers, never in an API request.
+        delay = self.next_request_at - time.monotonic()
+        if delay > 0:
+            time.sleep(delay)
+        response = self.http.get(url, params=params)
+        self.next_request_at = time.monotonic() + 0.25
+        return response
+
+    def messages(self, since: datetime | None, known_ids: set[str] | None = None):
         query = SEARCH
         if since:
             # Overlap covers same-second indexing; stable IDs deduplicate results.
@@ -54,13 +66,15 @@ class GmailClient:
             params = {"q": query, "maxResults": 100}
             if page:
                 params["pageToken"] = page
-            response = self.http.get(
+            response = self.get(
                 "https://gmail.googleapis.com/gmail/v1/users/me/messages", params=params
             )
             self.check(response)
             data = response.json()
             for message in data.get("messages", []):
-                details = self.http.get(
+                if known_ids and message["id"] in known_ids:
+                    continue
+                details = self.get(
                     f"https://gmail.googleapis.com/gmail/v1/users/me/messages/{message['id']}",
                     params=[
                         ("format", "metadata"),

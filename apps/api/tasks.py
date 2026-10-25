@@ -9,7 +9,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from apps.api.database import SessionLocal
 from apps.api.gmail_client import GmailClient, GmailFailure
 from apps.api.ingestion import ingest
-from apps.api.models import OAuthCredential, SyncRun
+from apps.api.models import GmailMessage, OAuthCredential, SyncRun
 
 celery = Celery("flowstate", broker=os.getenv("REDIS_URL", "redis://localhost:6379/0"))
 celery.conf.update(
@@ -67,7 +67,19 @@ def _sync_gmail(self, run_id: str):
                 os.getenv("GOOGLE_CLIENT_ID", ""),
                 os.getenv("GOOGLE_CLIENT_SECRET", ""),
             )
-            for message in client.messages(credential.last_synced_at):
+            # On retries, skip metadata already persisted rather than spending
+            # Gmail quota retrieving the same first pages again.
+            since = credential.last_synced_at
+            cutoff = since - timedelta(days=1) if since else started - timedelta(days=366)
+            known_ids = set(
+                database.scalars(
+                    select(GmailMessage.gmail_id).where(
+                        GmailMessage.user_id == user_id,
+                        GmailMessage.received_at >= cutoff,
+                    )
+                )
+            )
+            for message in client.messages(since, known_ids=known_ids):
                 # A disconnect deletes the run. Never recreate deleted user data.
                 database.expire_all()
                 run = database.scalar(select(SyncRun).where(SyncRun.id == run_id).with_for_update())

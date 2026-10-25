@@ -7,21 +7,21 @@ or provision/publicly expose resources without the requested approval.
 
 Checklist (unchecked means acceptance criteria remain unmet):
 
-- [ ] 1. Foundation: settings, health, schemas, migrations, API client, seed data
-- [ ] 2. Persistent, authorized CRUD, search, filters, sorting, status history
-- [ ] 3. Google OAuth, secure sessions, refresh, protected pages, real login
-- [ ] 4. Gmail retrieval, pagination, incremental sync, deduplication, privacy
-- [ ] 5. Classification, matching, confidence, provenance, correction precedence
-- [ ] 6. Responsive dashboard, real metrics, management, sync, account settings
-- [ ] 7. Redis/Celery persistent sync runs, retries, locks, recovery
-- [ ] 8. Dockerfiles and complete local Compose stack
-- [ ] 9. Separate development/production, migrations, backups
+- [x] 1. Foundation: settings, health, schemas, migrations, API client, seed data
+- [x] 2. Persistent, authorized CRUD, search, filters, sorting, status history
+- [x] 3. Google OAuth, secure sessions, refresh, protected pages, real login
+- [x] 4. Gmail retrieval, pagination, incremental sync, deduplication, privacy
+- [x] 5. Classification, matching, confidence, provenance, correction precedence
+- [x] 6. Responsive dashboard, real metrics, management, sync, account settings
+- [x] 7. Redis/Celery persistent sync runs, retries, locks, recovery
+- [x] 8. Dockerfiles and complete local Compose stack
+- [x] 9. Separate development/production, migrations, backups
 - [ ] 10. Simple EC2 Terraform, formatting, validation, plan
 - [ ] 11. Repeatable EC2 deployment and recovery (approval before provisioning)
 - [ ] 12. Nginx routing, TLS, renewal (domain/certificates required)
 - [ ] 13. GitHub Actions checks, optional protected deployment
 - [ ] 14. Integration, security, reliability, browser end-to-end tests
-- [ ] 15. Accurate README, developer guide, diagrams, screenshots if verified
+- [x] 15. Accurate README, developer guide, diagrams, screenshots if verified
 - [ ] 16. Vagrant three-VM lab and verification
 - [ ] 17. Idempotent Ansible roles, secure configuration, deployment
 - [ ] 18. Packer image, validation (approval before paid build)

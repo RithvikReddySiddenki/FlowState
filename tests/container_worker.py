@@ -12,7 +12,7 @@ class SyntheticGmail:
     def __init__(self, *args):
         pass
 
-    def messages(self, since):
+    def messages(self, since, known_ids=None):
         for identifier, snippet, timestamp in [
             ("synthetic-queue-interview", "Interview scheduled with the team", "1791288000000"),
             ("synthetic-queue-old", "We are not moving forward", "1791115200000"),

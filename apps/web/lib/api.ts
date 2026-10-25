@@ -1,4 +1,5 @@
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+export const SESSION_EXPIRED_EVENT = "flowstate:session-expired";
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message); }
@@ -10,6 +11,9 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
     headers: { "Content-Type": "application/json", ...options.headers },
   });
   if (!response.ok) {
+    if (response.status === 401 && typeof window !== "undefined") {
+      window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+    }
     const body = await response.json().catch(() => null);
     const detail = typeof body?.detail === "string" ? body.detail : "Request failed. Check your input and try again.";
     throw new ApiError(response.status, detail);

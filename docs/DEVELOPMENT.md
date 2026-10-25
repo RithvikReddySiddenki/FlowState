@@ -15,6 +15,8 @@ Run `python -m unittest discover -v` from root. Tests use synthetic data and a
 separate in-memory SQLite database with foreign keys enabled, never your local
 PostgreSQL or Gmail credentials. Run frontend `npm run lint`, `npx tsc --noEmit`
 and `npm run build`. SQLite tests do not replace PostgreSQL integration tests.
+Run `npm run build` before `npm run test:e2e`: browser fixture tests serve the
+compiled app on loopback port 3100, so they can coexist with development on 3000.
 
 Mutating API requests require an Origin header matching FRONTEND_URL to prevent
 CSRF. Protected endpoints require a valid server-side login session. Auth/me

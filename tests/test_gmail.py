@@ -294,6 +294,20 @@ class GmailTests(ApiFixture):
         self.assertEqual(http.get.call_args_list[1].kwargs["params"][0], ("format", "metadata"))
         self.assertEqual(http.get.call_args_list[2].kwargs["params"]["pageToken"], "page2")
 
+    def test_known_message_ids_do_not_spend_metadata_requests(self):
+        http = MagicMock()
+        http.post.return_value = httpx.Response(200, json={"access_token": "synthetic"})
+        http.get.side_effect = [
+            httpx.Response(200, json={"messages": [{"id": "known"}, {"id": "new"}]}),
+            httpx.Response(200, json=message("new")),
+        ]
+        with patch("apps.api.gmail_client.httpx.Client", return_value=http):
+            client = GmailClient(encrypt("refresh"), "client", "secret")
+            rows = list(client.messages(None, known_ids={"known"}))
+            client.close()
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(http.get.call_count, 2)
+
     def test_disconnect_deletes_metadata_and_revokes(self):
         self.credential()
         with self.sessions() as database:

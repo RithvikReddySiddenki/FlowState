@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 // No route mocking or authentication bypass in the application. This cookie is
 // seeded by smoke_stack.py exclusively in the isolated synthetic Compose DB.
 test("manage applications through the real container API", async ({ page }, info) => {
-  const { cookie } = JSON.parse(readFileSync("../../.tools/validation-session.json", "utf8"));
+  const { cookie } = JSON.parse(readFileSync(process.env.FLOWSTATE_LIVE_SESSION_FILE || "../../.tools/validation-session.json", "utf8"));
   await page.context().addCookies([{ name: "session", value: cookie, domain: "localhost", path: "/", httpOnly: true, sameSite: "Lax" }]);
   await page.goto("/dashboard");
   await expect(page.getByText("container-demo@example.test")).toBeVisible();
@@ -28,4 +28,7 @@ test("manage applications through the real container API", async ({ page }, info
   page.once("dialog", dialog => dialog.accept());
   await card.getByRole("button", { name: "Delete", exact: true }).click();
   await expect(card).toHaveCount(0);
+  await page.getByRole("link", { name: "Account settings" }).click();
+  await expect(page.getByRole("heading", { name: "Account settings" })).toBeVisible();
+  await expect(page.getByText("Synthetic demo · container-demo@example.test")).toBeVisible();
 });

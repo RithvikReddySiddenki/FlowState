@@ -67,3 +67,20 @@ test("unauthenticated users see sign in instead of private data", async ({ page 
   await expect(page.getByRole("link", { name: "Sign in with Google" })).toBeVisible();
   await expect(page.getByRole("article")).toHaveCount(0);
 });
+
+test("account settings offers connected-account controls", async ({ page }) => {
+  await page.goto("/settings");
+  await expect(page.getByRole("heading", { name: "Account settings" })).toBeVisible();
+  await expect(page.getByText("Google account · demo@example.test")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Connect Gmail" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Delete account" })).toBeVisible();
+});
+
+test("expired Gmail mutations return the workspace to sign in", async ({ page }) => {
+  await page.route("http://localhost:8000/gmail/connection", route => route.fulfill({ json: { connected: true, last_synced_at: null, latest_run: null } }));
+  await page.route("http://localhost:8000/gmail/sync/start", route => route.fulfill({ status: 401, json: { detail: "Sign in to continue" } }));
+  await page.goto("/dashboard");
+  await page.getByRole("button", { name: "Sync / retry Gmail" }).click();
+  await expect(page.getByRole("link", { name: "Sign in with Google" })).toBeVisible();
+  await expect(page.getByRole("article")).toHaveCount(0);
+});

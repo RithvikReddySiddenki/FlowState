@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "node scripts/serve-built.mjs",
     "lint": "eslint",
     "test:e2e": "playwright test"
   },

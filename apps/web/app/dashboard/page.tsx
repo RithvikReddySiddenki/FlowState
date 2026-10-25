@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { api, ApiError, API_BASE_URL } from "@/lib/api";
+import Link from "next/link";
+import { api, ApiError, API_BASE_URL, SESSION_EXPIRED_EVENT } from "@/lib/api";
 import { GmailPanel, MessageDetail, type Message } from "./gmail-panel";
 
 type Application = {
@@ -32,6 +33,8 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const controller = new AbortController();
+    const expire = () => { setUser(null); setApplications([]); setSelected(null); };
+    window.addEventListener(SESSION_EXPIRED_EVENT, expire);
     async function load() {
       try {
         const auth = await api<{ user: User }>("/auth/me", { signal: controller.signal });
@@ -51,7 +54,7 @@ export default function DashboardPage() {
       }
     }
     void load();
-    return () => controller.abort();
+    return () => { controller.abort(); window.removeEventListener(SESSION_EXPIRED_EVENT, expire); };
   }, []);
 
   const refresh = useCallback(async () => {
@@ -78,7 +81,7 @@ export default function DashboardPage() {
     (!status || (status === "Action Required" ? a.action_required : a.current_status === status))
   ).sort((a, b) => sort === "company" ? a.company.localeCompare(b.company) : b.updated_at.localeCompare(a.updated_at));
 
-  if (loading) return <main className="min-h-screen bg-slate-950 p-10 text-white" aria-busy="true">Loading your workspace…</main>;
+  if (loading) return <main className="min-h-screen bg-slate-950 p-10 text-white" aria-busy="true"><p role="status">Loading your workspace…</p><div aria-hidden="true" className="mt-8 grid animate-pulse grid-cols-2 gap-4 md:grid-cols-4">{Array.from({ length: 8 }, (_, i) => <div key={i} className="h-24 rounded-xl bg-slate-800" />)}</div><div aria-hidden="true" className="mt-8 h-72 animate-pulse rounded-xl bg-slate-900" /></main>;
   if (!user) return <main className="flex min-h-screen flex-col items-center justify-center gap-6 bg-slate-950 p-6 text-white">
     <h1 className="text-3xl font-bold">Your next chapter starts here.</h1>
     <p className="text-slate-300">Sign in to manage your private application tracker.</p>
@@ -94,6 +97,7 @@ export default function DashboardPage() {
           <h1 className="mt-2 text-3xl font-bold sm:text-4xl">Application workspace</h1>
           <p className="mt-2 text-slate-400">Keep every opportunity moving forward.</p></div>
         <div className="flex flex-wrap items-center gap-4"><span>{user.email}</span>
+          <Link className="text-cyan-300 underline" href="/settings">Account settings</Link>
           <button disabled={busy} className="rounded-lg border border-slate-600 px-4 py-2" onClick={() => void perform(async () => {
             await api("/auth/logout", { method: "POST" }); setUser(null); setApplications([]); setSelected(null);
           })}>Sign out</button></div>
@@ -105,6 +109,7 @@ export default function DashboardPage() {
           <p className="text-xs text-slate-400">{label}</p><p className="mt-2 text-3xl font-semibold">{label === "Total" ? applications.length : applications.filter(a => label === "Action Required" ? a.action_required : a.current_status === label).length}</p>
         </div>)}
       </section>
+      {applications.length > 0 && <section aria-label="Recent application activity" className="mb-8 rounded-xl border border-slate-800 p-5"><h2 className="mb-3 text-lg font-semibold">Recent activity</h2><ul className="grid gap-3 md:grid-cols-2">{[...applications].sort((a, b) => b.updated_at.localeCompare(a.updated_at)).slice(0, 4).map(a => <li key={a.id} className="text-sm"><strong>{a.company}</strong> · {a.current_status}<p className="text-slate-400">{a.role} · Updated {new Date(a.updated_at).toLocaleString()}</p></li>)}</ul></section>}
       <div className="grid items-start gap-8 lg:grid-cols-[320px_1fr]">
         <form className="space-y-4 rounded-xl border border-slate-800 bg-slate-900 p-6" onSubmit={event => {
           event.preventDefault();
@@ -134,7 +139,8 @@ export default function DashboardPage() {
           {!filtered.length && <p className="rounded-xl border border-dashed border-slate-700 p-10 text-center text-slate-400">{applications.length ? "No applications match your filters." : "Add your first application to get started."}</p>}
           <div className="space-y-3">{filtered.map(a => <article key={a.id} className="rounded-xl border border-slate-800 bg-slate-900 p-5">
             <div className="flex flex-wrap justify-between gap-3"><div><h2 className="text-xl font-semibold">{a.company}</h2><p className="text-slate-300">{a.role}</p></div><span className="h-fit rounded-full bg-slate-800 px-3 py-1 text-sm text-cyan-200">{a.current_status}</span></div>
-            {a.action_required && <p className="mt-3 text-amber-300">Action required{a.deadline ? ` · Due ${new Date(a.deadline).toLocaleString()}` : ""}</p>}
+            {a.action_required && <p className="mt-3 text-amber-300">Action required</p>}
+            {a.deadline && <p className="mt-2 text-amber-200">Deadline: {new Date(a.deadline).toLocaleString()}</p>}
             <div className="mt-4 flex flex-wrap gap-5 text-sm">
               <button disabled={busy} className="text-cyan-300 underline" onClick={() => {
                 setEditing(a.id); setForm({ company: a.company, role: a.role, current_status: a.current_status, action_required: a.action_required, deadline: a.deadline ? new Date(new Date(a.deadline).getTime() - new Date(a.deadline).getTimezoneOffset() * 60000).toISOString().slice(0, 16) : "" });

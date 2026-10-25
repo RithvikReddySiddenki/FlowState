@@ -1,54 +1,60 @@
-# Manual prerequisites
+# Manual steps and approval checkpoints
 
-No production resources have been provisioned or exposed.
-Two feature increments are already pushed; no merge to main is authorized.
+## Completed with permission
 
-## Existing local work
+- Original uncommitted main.py OAuth changes preserved and extended.
+- Native local database backed up under ignored backups/, baseline registered,
+  migrated through 0004 and metadata checked. Existing users retained.
+- Development encryption key added to ignored apps/api/.env, never displayed.
+- Real Google sign-in, Gmail consent, token refresh and a live worker sync passed.
+  Metadata was persisted without printing email content.
+- Docker engine is running. Isolated synthetic dev/prod checks passed.
 
-Permission received to preserve and extend the initial uncommitted main.py OAuth
-database-user lookup. Do not reset, stash, or discard it.
+Never paste keys/passwords/tokens in chat. Keep local environment files, backups,
+rendered Kubernetes Secrets, Terraform state and kubeconfigs out of Git.
 
-## Docker
+## Vagrant/VirtualBox
 
-Docker Compose CLI is installed, but `docker info` cannot reach the Windows
-Docker engine pipe. Start Docker Desktop with Linux containers, wait until the
-engine is running, then run `docker info`. This initial blocker was later resolved:
-isolated dev/prod-shaped stacks and persistence checks passed. No user volumes
-were deleted. See PROGRESS.md for the actual checks.
+Vagrant and a VM provider are not installed/verified. To exercise the three-VM
+lab, install Vagrant from https://developer.hashicorp.com/vagrant/install and a
+compatible VirtualBox provider, enable hardware virtualization as needed, verify
+roughly 6 GB VM RAM plus host overhead is available, and check 192.168.56.0/24
+does not conflict with your network. Review infra/vagrant/README.md and run
+vagrant up from that directory. Confirm VM health before claiming provisioning
+or Ansible idempotence. Do not destroy VMs with valuable data without approval.
 
-## Google integration
+## AWS
 
-Local ignored apps/api/.env has Google and database settings present; values
-have not been displayed or verified. Never paste credentials into chat.
-Read-only PostgreSQL connectivity/schema inspection passed. Isolated PostgreSQL
-tests pass; the original schema has not been changed. An approval question is
-pending for backup, baseline registration and additive migrations. The prepared
-helper is `python scripts/migrate_local.py --apply-approved`; do not run the
-apply flag before approval.
+No cloud resources have been provisioned, planned against your account or deleted.
+Install AWS CLI if needed; prefer IAM Identity Center / `aws configure sso` and
+`aws sso login` over long-lived keys. Choose the account, role and region locally.
+Never send credentials in chat. Confirm identity locally using
+`aws sts get-caller-identity` without publishing output.
 
-TOKEN_ENCRYPTION_KEY is absent. Generate it locally with
-`python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`
-and append it only to the ignored apps/api/.env as TOKEN_ENCRYPTION_KEY. Keep it
-stable while encrypted credentials exist. Do not paste the generated value here.
+Review Terraform, input values, state storage, cost categories and an authenticated
+plan. Obtain explicit approval before apply, Packer builds, destroy, resource
+deletion or paid services. No production automatic deployment or main merge is
+enabled/authorized.
 
-When live OAuth/Gmail validation is ready:
-1. Open https://console.cloud.google.com/ and select the OAuth client project.
-2. Enable Gmail API in APIs & Services > Library.
-3. In Google Auth Platform, configure branding, audience and test users.
-4. Under Clients use a Web application OAuth client with development redirect
-   http://localhost:8000/auth/google/callback. Register the exact production
-   HTTPS callback only after a domain is selected and deployment approved.
-5. Store client ID/secret, redirect URI and a random session secret only in the
-   ignored local environment file. Gmail scopes and encrypted token storage must
-   be implemented before requesting offline Gmail consent.
-6. Confirm setup, then perform browser login and a controlled Gmail sync. Code
-   tests alone cannot establish real OAuth or Gmail integration success.
+## Domain and HTTPS
 
-## Infrastructure
+Choose whether to use an existing domain before publication. Do not purchase or
+change DNS without approval. After selecting a domain, prepare HTTPS FRONTEND_URL
+and Google callback ending /api/auth/google/callback, obtain a certificate, test
+Nginx and renewal, then approve publication. The TLS template is not proof of a
+certificate or working public HTTPS.
 
-Terraform is not on global PATH; a checksum-verified CLI exists in ignored
-.tools/terraform and basic configuration validates. AWS credentials, region, instance selection, domain,
-TLS certificates and cloud approval remain pending. Do not apply Terraform,
-create paid resources, expose services, enable production auto-deploy, or merge
-to main without explicit approval. Vagrant/Kubernetes/Packer/Ansible runtime
-availability has not yet been established.
+## Optional Gmail push and verification
+
+Pub/Sub topic/subscription, authenticated public push endpoint, watch renewal and
+Google restricted-scope verification need separate setup/approval. Polling remains
+supported. No Google production verification approval is claimed.
+
+## Existing manual Docker services
+
+User-created flowstate-redis and flowstate-postgres containers advertise 6379/5432
+on all host interfaces. They were left unchanged. Restrict to loopback or use the
+private Compose network before treating that setup as hardened. Preserve volumes
+and settings during deliberate changes. Native development uses existing Redis;
+the unused duplicate broker attempt was removed without deleting volumes or
+changing those user services.

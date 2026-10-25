@@ -26,7 +26,8 @@ from apps.api.tasks import sync_gmail
 def main():
     secret = "synthetic-container-validation-secret-only"
     assert os.getenv("SESSION_SECRET") == secret
-    assert os.getenv("FRONTEND_URL") == "http://localhost:13000"
+    origin = os.getenv("FRONTEND_URL")
+    assert origin in {"http://localhost:13000", "http://localhost:18090"}
     token = secrets.token_urlsafe(32)
     with SessionLocal() as database:
         user = database.scalar(select(User).where(User.google_id == "flowstate-synthetic-smoke"))
@@ -52,7 +53,7 @@ def main():
     cookie = TimestampSigner(secret).sign(data).decode()
     with httpx.Client(
         base_url="http://127.0.0.1:8000",
-        headers={"Origin": "http://localhost:13000"},
+        headers={"Origin": origin},
         cookies={"session": cookie},
     ) as client:
         assert client.get("/health/ready").status_code == 200

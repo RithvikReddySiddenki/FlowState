@@ -14,5 +14,6 @@
 artifacts
 .tools
 backups
+.vscode
 **/test-results
 **/playwright-report

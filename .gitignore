@@ -159,5 +159,8 @@ __pycache__/
 backups/
 .tools/
 .ruff_cache/
+**/.vagrant/
+**/.secrets/
+*.auto.pkrvars.hcl
 *.pem
 *.key

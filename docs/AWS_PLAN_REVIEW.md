@@ -195,7 +195,7 @@ must verify at least two available standard on-demand vCPUs before launch.
 
 ## Private plan artifacts
 
-The binary plans live in .tools/aws-plans under current-user-only ACLs. Raw plan
+The binary plans and private actual-account-bound permission-review copies live in .tools/aws-plans under current-user-only ACLs. Placeholder ARN substitution was done by trusted local JSON processing after sanitized analysis; no real account identity was passed to the analyzer. Raw plan
 JSON/logs and account details are ignored and never committed. Review locally;
 regenerate if inputs, credentials, provider/state or configuration change. The
 managed placeholder makes that plan reference-only regardless of its hash.
@@ -214,3 +214,13 @@ Use only the sanitized type/action file with the synthetic account. Full plan
 analysis was rejected by automatic approval review; the safer sanitized approach
 succeeded. No full plan or real account configuration was supplied to that tool.
 Keep generated output local until reviewed; never use an upload/apply option.
+
+
+## Verified development checkpoint
+
+Pushed0cecf5c (infrastructure defaults) and8ddb152 (estimator/review artifacts).
+54 SQLite/PostgreSQL tests, ten Terraform safety tests and all seven CI jobs pass:
+https://github.com/RithvikReddySiddenki/FlowState/actions/runs/40244007184 .
+No AWS mutation was executed. Raw state/plans/credentials remain outside Git;
+source scanning found no current credential values or real account number in
+the proposed tracked artifacts. The user's unrelated .vscode/ stays untracked.

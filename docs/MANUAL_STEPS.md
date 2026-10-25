@@ -62,7 +62,7 @@ the unused duplicate broker attempt was removed without deleting volumes or
 changing those user services.
 
 
-## Selected next step: AWS SSO
+## Earlier setup guidance (superseded by browser-login verification below)
 
 The owner selected AWS SSO/account-specific Terraform planning after fresh OAuth
 and Gmail checks passed. AWS CLI/profile were absent at this checkpoint. Install

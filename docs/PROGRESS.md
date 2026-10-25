@@ -32,7 +32,7 @@ Pushed additional checkpoints: 6c5ca3c VM automation; b515adf verified Kubernete
 ed2f791 managed AWS configuration; 77bbde0 monitoring/optional push;
 aca85a0 expanded CI/docs; b74bbf5 lab state recovery/runbooks;
 8414370 Pub/Sub Base64URL compatibility. All checkpoints pushed successfully.
-Final implementation checkpoint: 8414370, pushed successfully.
+Previous implementation checkpoint: 8414370, pushed successfully. Latest: fe5d00f below.
 All seven push and draft-PR checks passed, including backend/frontend,
 containers/monitoring, both Terraform configurations, infrastructure tooling
 and actual Kubernetes deployment:
@@ -72,7 +72,7 @@ User-created .vscode/ remains untracked and MUST NOT be modified/staged.
 
 ## Verification
 
-- 47 tests pass with SQLite and PostgreSQL using isolated temporary schemas.
+- 49 tests pass with SQLite and PostgreSQL using isolated temporary schemas (latest CI).
   Includes signed push JWT identity/audience/expiry, duplicates, history pages,
   expired-cursor fallback, initial-backfill failure, renewal and polling recovery.
 - Existing ten mocked desktop/mobile browser tests and two live Compose tests
@@ -146,7 +146,7 @@ working DATABASE_URL and user data were preserved.
 Added scripts/check_local_integrations.py: safe local config/redirect/schema/
 worker checks, optional explicitly requested single-account real sync, bounded
 wait and sanitized errors. Two synthetic protocol/loopback tests bring the suite
-to49 passing SQLite tests; full PostgreSQL/remote checks run in CI.
+to49 passing SQLite and PostgreSQL tests; both suites pass in remote CI.
 
 Added scripts/check_local_tls.py: a synthetic-project guard, temporary loopback
 Nginx, ignored one-day localhost certificates and container cleanup. Actual
@@ -154,7 +154,20 @@ TLS1.2/1.3, trusted API/frontend routing, redirect, metrics blocking and replace
 certificate reload passed. CI now runs this test after private monitoring.
 Public certificates, ACME renewal and real HTTPS OAuth remain unverified.
 
-Current work: commit/push diagnostics and local TLS checkpoint; inspect its CI.
-External continuation needs AWS SSO/profile/region for account-specific plans,
-or Vagrant/provider installation for VM provisioning. An async prerequisite
-choice is pending. No resources, domain changes, public exposure or merge approved.
+Checkpoint fe5d00f was committed and pushed. All seven remote jobs passed,
+including the new TLS/certificate-reload check:
+https://github.com/RithvikReddySiddenki/FlowState/actions/runs/40157169551
+The diagnostics command's explicit --sync path also completed a real Gmail run.
+No implementation changes remain uncommitted; user .vscode/ remains untouched.
+
+The owner selected AWS SSO for the next roadmap step. AWS CLI is absent from
+PATH, Program Files and its per-user installation location; ~/.aws/config does
+not exist and no custom config path is set. Manual action: install AWS CLI v2,
+configure/login to an IAM Identity Center profile, then provide profile name and
+intended deployment region only. The SSO start URL/region must come from the
+owner's actual AWS portal. Browser authentication cannot be completed by this
+agent. Next exact step after that reply: verify profile/identity locally without
+printing tokens/account details, prepare/review plan inputs and state protection,
+then run authenticated Terraform plans. No apply, paid resources, domain changes,
+public exposure or main merge is authorized. Vagrant/provider verification and
+public HTTPS/ACME/PubSub remain separate external dependencies.

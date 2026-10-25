@@ -60,3 +60,17 @@ private Compose network before treating that setup as hardened. Preserve volumes
 and settings during deliberate changes. Native development uses existing Redis;
 the unused duplicate broker attempt was removed without deleting volumes or
 changing those user services.
+
+
+## Selected next step: AWS SSO
+
+The owner selected AWS SSO/account-specific Terraform planning after fresh OAuth
+and Gmail checks passed. AWS CLI/profile were absent at this checkpoint. Install
+[AWS CLI v2](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html),
+then run `aws configure sso --profile flowstate-dev` and
+`aws sso login --profile flowstate-dev` using the actual IAM Identity Center portal
+values/account/role. See the [SSO guide](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-sso.html).
+Share only the resulting profile name and intended deployment region. Never
+paste credentials or browser/device codes. Planning can resume after identity,
+inputs and state protection are verified; applying still requires explicit plan
+and cost approval. No cloud resources were created by integration verification.

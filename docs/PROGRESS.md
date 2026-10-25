@@ -28,9 +28,13 @@ Optional push remains DISABLED for the real account and all default deployments.
 722b4bc remote checks all passed:
 https://github.com/RithvikReddySiddenki/FlowState/actions/runs/40154147095
 
-New local checkpoints: 6c5ca3c VM automation; b515adf verified Kubernetes;
-ed2f791 managed AWS configuration. Observability, optional push and expanded CI
-are being committed/validated. Record their push and remote results below.
+Pushed additional checkpoints: 6c5ca3c VM automation; b515adf verified Kubernetes;
+ed2f791 managed AWS configuration; 77bbde0 monitoring/optional push;
+aca85a0 expanded CI and release documentation.
+Expanded run: https://github.com/RithvikReddySiddenki/FlowState/actions/runs/40155870949
+Backend, frontend, both Terraform matrices, infrastructure and Kubernetes pass;
+container monitoring is completing. Final documentation/Ansible state checks
+will be committed next. Use git log/origin to identify the newest release head.
 User-created .vscode/ remains untracked and MUST NOT be modified/staged.
 
 ## Milestones
@@ -49,8 +53,8 @@ User-created .vscode/ remains untracked and MUST NOT be modified/staged.
 | 10 | Simple Terraform | fmt/init/validate pass; authenticated AWS plan pending |
 | 11 | EC2 deployment | Scripts prepared/syntax checked; real host unavailable |
 | 12 | Nginx/TLS | Actual proxy/DNS recovery pass; public domain/cert/renewal pending |
-| 13 | CI/CD | Core remote green; expanded CI awaits this release's run; no auto deploy |
-| 14 | Hardening | Tests/audits/secret checks pass; final runtime regression ongoing |
+| 13 | CI/CD | Expanded checks green except container job finishing; no auto deploy |
+| 14 | Hardening | Tests/audits/secret checks and final container regression pass |
 | 15 | Docs | README, diagrams, synthetic screenshots, runbooks and verification drafts |
 | 16 | Vagrant | Three VMs; Ruby syntax passes; provider/runtime unavailable |
 | 17 | Ansible | All roles syntax pass; VM provisioning/idempotence unverified |
@@ -71,7 +75,7 @@ User-created .vscode/ remains untracked and MUST NOT be modified/staged.
 - Real synthetic Celery tests cover success/dedupe/order, auth failure and bounded
   interrupted-run recovery. No test-login production endpoint was introduced.
 - Docker images/independent dev/prod-shaped stacks pass health/proxy/persistence.
-  Final image/migration 0005 and monitoring regression underway for this release.
+  Final image/migration 0005, queue success/failure/recovery and monitoring pass.
 - Prometheus API and operations targets are up; DB/broker gauges are 1; authenticated
   Grafana returns provisioned FlowState operations. Labels contain no PII/IDs.
 - Ruff lint/format, pip check and pip-audit pass (zero known vulnerabilities).
@@ -105,6 +109,6 @@ left unchanged; restrict before calling that manual setup hardened.
   project IAM; production restricted-scope verification is separately pending.
   Follow MANUAL_STEPS.md, GMAIL_PUSH.md and GOOGLE_VERIFICATION.md.
 
-Next exact step: complete final container regression, push the new checkpoints,
-inspect expanded GitHub Actions and fix failures. Update this file with the final
-commit/run and leave all remaining external requirements explicit.
+Next exact step: finish checking expanded remote CI and prepare the authorized
+draft PR. External VM/cloud/TLS/PubSub requirements above remain pending; no
+production deployment or main merge has occurred.

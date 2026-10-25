@@ -39,7 +39,7 @@
   ansible.builtin.command: docker compose -f compose.yml -f compose.lab.yml up --build -d --wait --wait-timeout 240
   args:
     chdir: /opt/flowstate/release
-  when: release_checkout.changed or app_environment.changed or lab_compose.changed or 'api' not in app_running.stdout_lines
+  when: release_checkout.changed or app_environment.changed or lab_compose.changed or (['api', 'worker', 'scheduler', 'web', 'nginx', 'operations-exporter'] | difference(app_running.stdout_lines) | length > 0)
   changed_when: true
 - name: Verify application reaches database VM
   ansible.builtin.uri:

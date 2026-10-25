@@ -27,5 +27,5 @@
   register: monitoring_running
 - name: Deploy or update monitoring
   ansible.builtin.command: docker compose -f /opt/flowstate/compose.monitoring.yml up -d
-  when: monitoring_release.changed or monitoring_compose.changed or monitoring_targets.changed or 'grafana' not in monitoring_running.stdout_lines
+  when: monitoring_release.changed or monitoring_compose.changed or monitoring_targets.changed or (['grafana', 'prometheus'] | difference(monitoring_running.stdout_lines) | length > 0)
   changed_when: true

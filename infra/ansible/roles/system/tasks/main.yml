@@ -8,6 +8,7 @@
     name: [ca-certificates, curl, git, unattended-upgrades, python3-debian]
     state: present
     update_cache: true
+    cache_valid_time: 3600
 - name: Create keyring directory
   ansible.builtin.file:
     path: /etc/apt/keyrings
@@ -33,6 +34,7 @@
     name: [docker-ce, docker-ce-cli, containerd.io, docker-buildx-plugin, docker-compose-plugin]
     state: present
     update_cache: true
+    cache_valid_time: 3600
 - name: Enable Docker
   ansible.builtin.service:
     name: docker

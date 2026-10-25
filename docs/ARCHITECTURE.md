@@ -15,7 +15,7 @@ flowchart LR
   API --> Google[Google OIDC]
 ```
 
-Implemented code/configuration (complete runtime verification still pending):
+Implemented architecture (core/Compose/kind runtime verified; public TLS pending):
 
 ```mermaid
 flowchart LR

@@ -36,7 +36,8 @@ management. Local development and production-shaped stacks have passed startup
 and health checks. Nginx routing, real API CRUD, desktop/mobile browser CRUD and
 database persistence across DB container recreation passed. Real Redis/Celery
 processes handled both a durable failure and successful ingestion with a synthetic
-Gmail adapter. Real Google calls and public HTTPS remain unverified.
+Gmail adapter. Native local Google login, consent, refresh and sync also passed;
+the isolated container tests use synthetic credentials. Public HTTPS is unverified.
 
 For credential-free validation, use project flowstate-validation with compose.yml,
 docker-compose.dev.yml and compose.validation.yml. Set POSTGRES_PASSWORD to a

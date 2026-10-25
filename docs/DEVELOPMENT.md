@@ -18,8 +18,9 @@ and `npm run build`. SQLite tests do not replace PostgreSQL integration tests.
 Run `npm run build` before `npm run test:e2e`: browser fixture tests serve the
 compiled app on loopback port 3100, so they can coexist with development on 3000.
 
-Mutating API requests require an Origin header matching FRONTEND_URL to prevent
-CSRF. Protected endpoints require a valid server-side login session. Auth/me
+Browser mutations require an Origin header matching FRONTEND_URL to prevent
+CSRF. The disabled-by-default Pub/Sub POST instead requires a verified Google
+service identity; see GMAIL_PUSH.md. Protected endpoints require a valid server-side login session. Auth/me
 returns 401 when unauthenticated. API pagination defaults to 100 and maxes at
 500 records per page. Treat Action Required as an independent flag; six stages
 remain stable while reminders/deadlines change.

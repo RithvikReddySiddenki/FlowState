@@ -23,5 +23,6 @@ eligibility is assumed. Avoid a paid NAT/ALB for this single-host starting stage
 The root disk is retained on instance termination and needs approved lifecycle
 management; resource deletion is not a backup strategy.
 
-The separate advanced managed-services architecture (RDS/ElastiCache/ALB/secrets)
-is not implemented. Complete the working core and runtime checks first.
+The separate [managed-services architecture](../terraform-managed/README.md)
+prepares private RDS/ElastiCache, ALB, runtime secrets and CloudWatch. Both
+configurations validate; neither has been planned/applied against an AWS account.

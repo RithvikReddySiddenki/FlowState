@@ -1,72 +1,92 @@
 import os
+import hashlib
+import secrets
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from authlib.integrations.starlette_client import OAuth
 from dotenv import load_dotenv
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse
-from pydantic import BaseModel, Field
+from fastapi.responses import JSONResponse, RedirectResponse
+from sqlalchemy import delete, select, text
+from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
+from authlib.integrations.base_client.errors import OAuthError
 from starlette.middleware.sessions import SessionMiddleware
 
-# loads variables from apps/api/.env
-load_dotenv()
+from apps.api.database import SessionLocal, get_db
+from apps.api.models import AuthSession, User
+from apps.api.applications import router as applications_router
+from apps.api.dependencies import current_user
 
-# creates the actual FastAPI application
-app = FastAPI()
 
-# allows the frontend on localhost:3000 to talk to backend on localhost:8000
+# Finds and loads apps/api/.env.
+env_file = Path(__file__).resolve().parent / ".env"
+load_dotenv(env_file)
+
+
+# Creates the FastAPI application.
+session_secret = os.getenv("SESSION_SECRET", "")
+if len(session_secret) < 32:
+    raise RuntimeError("SESSION_SECRET must contain at least 32 random characters")
+frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
+production = os.getenv("APP_ENV", "development") == "production"
+if production and not frontend_url.startswith("https://"):
+    raise RuntimeError("Production FRONTEND_URL must use HTTPS")
+app = FastAPI(title="FlowState API")
+app.include_router(applications_router)
+
+
+@app.middleware("http")
+async def protect_mutations(request: Request, call_next):
+    # Browsers always supply Origin on cross-origin fetch mutations. Reject
+    # absent/foreign origins instead of relying solely on SameSite cookies.
+    if request.method in {"POST", "PATCH", "PUT", "DELETE"}:
+        if request.headers.get("origin") != frontend_url:
+            return JSONResponse({"detail": "Untrusted request origin"}, status_code=403)
+    return await call_next(request)
+
+
+
+# Allows the frontend on localhost:3000 to communicate with
+# the backend on localhost:8000.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=[frontend_url],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# allows FastAPI to store login session data in a signed browser cookie
+
+# Allows FastAPI to store login session data in a signed browser cookie.
 app.add_middleware(
     SessionMiddleware,
-    secret_key=os.getenv("SESSION_SECRET", "dev-secret-change-later"),
+    secret_key=session_secret,
+    https_only=production,
+    same_site="lax",
+    max_age=60 * 60 * 12,
 )
 
-# Google OAuth setup
+
+# Google OAuth setup.
 oauth = OAuth()
 
 oauth.register(
     name="google",
     client_id=os.getenv("GOOGLE_CLIENT_ID"),
     client_secret=os.getenv("GOOGLE_CLIENT_SECRET"),
-    server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
+    server_metadata_url=(
+        "https://accounts.google.com/.well-known/openid-configuration"
+    ),
     client_kwargs={
         "scope": "openid email profile",
     },
 )
 
-# currently like a test database for the project
-# in format 1: {"id": 1, "company": ..., "role": ..., "current_status": ...}
-applications = {}
 
-# keeps track of the ID number that the next application should get
-next_index = 1
-
-
-# we create a class that inherits from BaseModel
-# this specifies which information we need from the user
-class CreateApplication(BaseModel):
-    company: str = Field(min_length=1)
-    role: str = Field(min_length=1)
-    current_status: str = Field(min_length=1)
-
-
-# this class makes it so not all fields are necessary when editing an application
-class UpdateApplication(BaseModel):
-    company: str | None = None
-    role: str | None = None
-    current_status: str | None = None
-
-
-# creates the route for the home route: http://localhost:8000/
-# this is a way to check if the backend is still alive
+# Basic route used to verify that the backend is running.
 @app.get("/")
 def read_root():
     return {"message": "FlowState API is running"}
@@ -76,119 +96,110 @@ def read_root():
 # Google OAuth routes
 # -------------------------
 
-# starts the Google login process
+
+# Starts the Google login process.
 @app.get("/auth/google/login")
 async def google_login(request: Request):
     redirect_uri = os.getenv("GOOGLE_REDIRECT_URI")
+
     if not redirect_uri:
-        return {"message": "GOOGLE_REDIRECT_URI is missing from .env"}
+        raise HTTPException(503, "Google login is not configured")
+
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
 
-# Google sends the user back here after login
+# Google sends the user back to this route after a successful login.
 @app.get("/auth/google/callback")
 async def google_callback(request: Request):
-    token = await oauth.google.authorize_access_token(request)
+    try:
+        token = await oauth.google.authorize_access_token(request)
+    except OAuthError:
+        request.session.clear()
+        raise HTTPException(400, "Google authentication failed; please try again") from None
     user_info = token.get("userinfo")
 
-    if not user_info:
-        return {"message": "Could not get user info from Google"}
+    if not user_info or not user_info.get("sub") or not user_info.get("email_verified"):
+        request.session.clear()
+        raise HTTPException(400, "A verified Google email is required")
 
-    # stores basic user info in the session cookie
-    request.session["user"] = {
-        "email": user_info["email"],
-        "name": user_info.get("name"),
-        "google_id": user_info["sub"],
-    }
+    # Opens a database session.
+    with SessionLocal() as database:
+        # Searches for a user with this Google account ID.
+        database_user = database.scalar(
+            select(User).where(User.google_id == user_info["sub"])
+        )
+
+        # If no matching user exists, this is their first login.
+        if database_user is None:
+            database_user = User(
+                google_id=user_info["sub"],
+                email=user_info["email"],
+                name=user_info.get("name"),
+            )
+
+            database.add(database_user)
+
+        else:
+            # Keeps the saved information current if the user's
+            # Google name or email has changed.
+            database_user.email = user_info["email"]
+            database_user.name = user_info.get("name")
+
+        # Permanently saves the new or updated user.
+        database.commit()
+
+        # Reloads the record so generated values such as id are available.
+        database.refresh(database_user)
+
+        # Only an opaque session token reaches the browser; logout revokes it.
+        session_token = secrets.token_urlsafe(32)
+        database.add(AuthSession(
+            token_hash=hashlib.sha256(session_token.encode()).hexdigest(),
+            user_id=database_user.id,
+            expires_at=datetime.now(timezone.utc) + timedelta(hours=12),
+        ))
+        database.commit()
+
+    # Stores basic user information in the signed session cookie.
+    request.session.clear()
+    request.session["sid"] = session_token
 
     frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
     return RedirectResponse(f"{frontend_url}/dashboard")
 
 
-# lets the frontend check if the user is logged in
+# The database remains the source of truth for account existence.
 @app.get("/auth/me")
-def auth_me(request: Request):
-    user = request.session.get("user")
-    if not user:
-        return {
-            "authenticated": False,
-            "user": None,
-        }
-    return {
-        "authenticated": True,
-        "user": user,
-    }
+def auth_me(user: User = Depends(current_user)):
+    return {"authenticated": True, "user": {
+        "id": user.id, "email": user.email, "name": user.name,
+        "google_id": user.google_id,
+    }}
 
 
-# logs the user out
+# Logs the user out.
 @app.post("/auth/logout")
-def logout(request: Request):
+def logout(request: Request, database: Session = Depends(get_db)):
+    token = request.session.get("sid")
+    if isinstance(token, str):
+        database.execute(delete(AuthSession).where(
+            AuthSession.token_hash == hashlib.sha256(token.encode()).hexdigest()
+        ))
+        database.commit()
     request.session.clear()
     return {"message": "Logged out"}
 
 
-# Application routes
-
-# gets all applications
-@app.get("/applications")
-def get_applications():
-    return list(applications.values())
+@app.get("/health/live")
+def liveness():
+    return {"status": "ok"}
 
 
-# gets one specific application
-@app.get("/applications/{application_id}")
-def get_application(application_id: int):
-    if application_id in applications:
-        return applications[application_id]
-
-    return {"message": "Application not found"}
-
-
-# creates a new application
-@app.post("/applications")
-def create_application(application: CreateApplication):
-    global next_index
-
-    new_application = {
-        "id": next_index,
-        "company": application.company,
-        "role": application.role,
-        "current_status": application.current_status,
-    }
-
-    applications[next_index] = new_application
-    next_index += 1
-
-    return new_application
-
-
-# edits an existing application
-@app.patch("/applications/{application_id}")
-def edit_application(application_id: int, updated_application: UpdateApplication):
-    if application_id not in applications:
-        return {"message": "Application not found"}
-
-    if updated_application.company is not None:
-        applications[application_id]["company"] = updated_application.company
-
-    if updated_application.role is not None:
-        applications[application_id]["role"] = updated_application.role
-
-    if updated_application.current_status is not None:
-        applications[application_id]["current_status"] = updated_application.current_status
-
-    return applications[application_id]
-
-
-# deletes an application
-@app.delete("/applications/{application_id}")
-def delete_application(application_id: int):
-    if application_id not in applications:
-        return {"message": "Application not found"}
-
-    deleted_application = applications.pop(application_id)
-
-    return {
-        "message": "Application deleted",
-        "deleted_application": deleted_application,
-    }
+@app.get("/health/ready")
+def readiness():
+    try:
+        with SessionLocal() as database:
+            database.execute(text("SELECT 1"))
+    except SQLAlchemyError:
+        raise HTTPException(503, "Database unavailable") from None
+    return {"status": "ready"}

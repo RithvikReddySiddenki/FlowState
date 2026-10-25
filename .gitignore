@@ -148,3 +148,13 @@ apps/api/.venv/
 # Python cache files
 __pycache__/
 *.pyc
+*.db
+*.sqlite*
+.pytest_cache/
+*.tfstate
+*.tfstate.*
+.terraform/
+*.tfvars
+!*.tfvars.example
+*.pem
+*.key

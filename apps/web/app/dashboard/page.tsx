@@ -1,580 +1,158 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { api, ApiError, API_BASE_URL } from "@/lib/api";
 
 type Application = {
-  id: number;
-  company: string;
-  role: string;
-  current_status: string;
+  id: number; company: string; role: string; current_status: string;
+  action_required: boolean; deadline: string | null; updated_at: string;
 };
-
-type User = {
-  email: string;
-  name?: string;
-  google_id: string;
-};
-
-const API_BASE_URL = "http://localhost:8000";
-
-const statuses = [
-  "Application Received",
-  "Under Review",
-  "Assessment Invite",
-  "Interview Scheduled",
-  "Offer",
-  "Rejected",
-  "Action Required",
-];
+type History = { id: number; current_status: string; source: string; created_at: string };
+type User = { email: string; name?: string };
+const stages = ["Application Received", "Under Review", "Assessment Invite", "Interview Scheduled", "Offer", "Rejected"];
+const blank = { company: "", role: "", current_status: stages[0], action_required: false, deadline: "" };
+const input = "w-full rounded-lg border border-slate-600 bg-slate-950 p-3 text-white focus:outline-2 focus:outline-cyan-400";
+const button = "rounded-lg bg-cyan-300 px-4 py-2 font-semibold text-slate-950 disabled:opacity-50";
 
 export default function DashboardPage() {
-  const [applications, setApplications] = useState<Application[]>([]);
   const [user, setUser] = useState<User | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
-
-  const [company, setCompany] = useState("");
-  const [role, setRole] = useState("");
-  const [currentStatus, setCurrentStatus] = useState("Application Received");
-  const [errorMessage, setErrorMessage] = useState("");
-
-  async function fetchCurrentUser() {
-    const response = await fetch(`${API_BASE_URL}/auth/me`, {
-      credentials: "include",
-    });
-
-    if (!response.ok) {
-      throw new Error("Failed to fetch current user");
-    }
-
-    const data = await response.json();
-
-    if (data.authenticated) {
-      setUser(data.user);
-    } else {
-      setUser(null);
-    }
-
-    setAuthLoading(false);
-  }
-
-  async function fetchApplications() {
-    const response = await fetch(`${API_BASE_URL}/applications`, {
-      credentials: "include",
-    });
-
-    if (!response.ok) {
-      throw new Error("Failed to fetch applications");
-    }
-
-    const data = await response.json();
-    setApplications(data);
-  }
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [form, setForm] = useState(blank);
+  const [editing, setEditing] = useState<number | null>(null);
+  const [selected, setSelected] = useState<Application | null>(null);
+  const [history, setHistory] = useState<History[]>([]);
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState("");
+  const [sort, setSort] = useState("updated");
 
   useEffect(() => {
-    fetchCurrentUser();
-    fetchApplications();
+    const controller = new AbortController();
+    async function load() {
+      try {
+        const auth = await api<{ user: User }>("/auth/me", { signal: controller.signal });
+        const rows: Application[] = [];
+        for (let offset = 0; ; offset += 500) {
+          const page = await api<Application[]>(`/applications?limit=500&offset=${offset}`, { signal: controller.signal });
+          rows.push(...page);
+          if (page.length < 500) break;
+        }
+        setUser(auth.user);
+        setApplications(rows);
+      } catch (e) {
+        if (controller.signal.aborted) return;
+        if (!(e instanceof ApiError && e.status === 401)) setError("Could not load your account. Check the API connection and retry.");
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
+      }
+    }
+    void load();
+    return () => controller.abort();
   }, []);
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    if (!company.trim() || !role.trim()) {
-      setErrorMessage("Company and role are required.");
-      return;
+  async function refresh() {
+    const rows: Application[] = [];
+    for (let offset = 0; ; offset += 500) {
+      const page = await api<Application[]>(`/applications?limit=500&offset=${offset}`);
+      rows.push(...page);
+      if (page.length < 500) break;
     }
-
-    setErrorMessage("");
-
-    const response = await fetch(`${API_BASE_URL}/applications`, {
-      method: "POST",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        company: company.trim(),
-        role: role.trim(),
-        current_status: currentStatus,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error("Failed to create application");
-    }
-
-    setCompany("");
-    setRole("");
-    setCurrentStatus("Application Received");
-
-    await fetchApplications();
+    setApplications(rows);
   }
 
-  async function updateStatus(applicationId: number, newStatus: string) {
-    const response = await fetch(`${API_BASE_URL}/applications/${applicationId}`, {
-      method: "PATCH",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        current_status: newStatus,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error("Failed to update application status");
-    }
-
-    await fetchApplications();
+  async function perform(action: () => Promise<void>) {
+    setBusy(true); setError("");
+    try { await action(); }
+    catch (e) {
+      if (e instanceof ApiError && e.status === 401) { setUser(null); setApplications([]); setSelected(null); }
+      setError(e instanceof Error ? e.message : "Something went wrong. Please retry.");
+    } finally { setBusy(false); }
   }
 
-  async function deleteApplication(applicationId: number) {
-    const response = await fetch(`${API_BASE_URL}/applications/${applicationId}`, {
-      method: "DELETE",
-      credentials: "include",
-    });
+  const filtered = applications.filter(a =>
+    `${a.company} ${a.role}`.toLowerCase().includes(search.toLowerCase()) &&
+    (!status || (status === "Action Required" ? a.action_required : a.current_status === status))
+  ).sort((a, b) => sort === "company" ? a.company.localeCompare(b.company) : b.updated_at.localeCompare(a.updated_at));
 
-    if (!response.ok) {
-      throw new Error("Failed to delete application");
-    }
+  if (loading) return <main className="min-h-screen bg-slate-950 p-10 text-white" aria-busy="true">Loading your workspace…</main>;
+  if (!user) return <main className="flex min-h-screen flex-col items-center justify-center gap-6 bg-slate-950 p-6 text-white">
+    <h1 className="text-3xl font-bold">Your next chapter starts here.</h1>
+    <p className="text-slate-300">Sign in to manage your private application tracker.</p>
+    {error && <p role="alert">{error}</p>}
+    <a className={button} href={`${API_BASE_URL}/auth/google/login`}>Sign in with Google</a>
+    <button onClick={() => window.location.reload()} className="underline">Retry connection</button>
+  </main>;
 
-    await fetchApplications();
-  }
-
-  async function handleLogout() {
-    const response = await fetch(`${API_BASE_URL}/auth/logout`, {
-      method: "POST",
-      credentials: "include",
-    });
-
-    if (!response.ok) {
-      throw new Error("Failed to log out");
-    }
-
-    setUser(null);
-  }
-
-  if (authLoading) {
-    return (
-      <main
-        style={{
-          minHeight: "100vh",
-          background: "#050816",
-          color: "white",
-          padding: "48px",
-          fontFamily: "Arial, sans-serif",
-        }}
-      >
-        <p>Loading...</p>
-      </main>
-    );
-  }
-
-  return (
-    <main
-      style={{
-        minHeight: "100vh",
-        background: "#050816",
-        color: "white",
-        padding: "48px",
-        fontFamily: "Arial, sans-serif",
-      }}
-    >
-      <section
-        style={{
-          maxWidth: "1100px",
-          margin: "0 auto",
-        }}
-      >
-        <div style={{ marginBottom: "40px" }}>
-          <p
-            style={{
-              color: "#8b9bb4",
-              fontSize: "14px",
-              marginBottom: "8px",
-              textTransform: "uppercase",
-              letterSpacing: "1px",
-            }}
-          >
-            FlowState
-          </p>
-
-          <h1
-            style={{
-              fontSize: "42px",
-              margin: "0 0 12px 0",
-            }}
-          >
-            Job Application Dashboard
-          </h1>
-
-          <p
-            style={{
-              color: "#aab4c4",
-              fontSize: "18px",
-              margin: 0,
-            }}
-          >
-            Add, track, update, and delete your job applications in one place.
-          </p>
-
-          <div
-            style={{
-              marginTop: "24px",
-              display: "flex",
-              alignItems: "center",
-              gap: "12px",
-            }}
-          >
-            {user ? (
-              <>
-                <p
-                  style={{
-                    color: "#cbd5e1",
-                    margin: 0,
-                  }}
-                >
-                  Signed in as <strong>{user.email}</strong>
-                </p>
-
-                <button
-                  onClick={handleLogout}
-                  style={{
-                    padding: "10px 14px",
-                    borderRadius: "10px",
-                    border: "1px solid #334155",
-                    background: "#0f172a",
-                    color: "white",
-                    cursor: "pointer",
-                  }}
-                >
-                  Logout
-                </button>
-              </>
-            ) : (
-              <a
-                href={`${API_BASE_URL}/auth/google/login`}
-                style={{
-                  display: "inline-block",
-                  padding: "12px 16px",
-                  borderRadius: "10px",
-                  background: "white",
-                  color: "#020617",
-                  fontWeight: "bold",
-                  textDecoration: "none",
-                }}
-              >
-                Sign in with Google
-              </a>
-            )}
-          </div>
-        </div>
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "360px 1fr",
-            gap: "32px",
-            alignItems: "start",
-          }}
-        >
-          <form
-            onSubmit={handleSubmit}
-            style={{
-              background: "#0f172a",
-              border: "1px solid #253047",
-              borderRadius: "16px",
-              padding: "24px",
-              boxShadow: "0 20px 40px rgba(0,0,0,0.25)",
-            }}
-          >
-            <h2
-              style={{
-                fontSize: "24px",
-                marginTop: 0,
-                marginBottom: "20px",
-              }}
-            >
-              Add Application
-            </h2>
-
-            {errorMessage && (
-              <p
-                style={{
-                  background: "#3b1111",
-                  border: "1px solid #ef4444",
-                  color: "#fecaca",
-                  padding: "10px",
-                  borderRadius: "8px",
-                  marginBottom: "16px",
-                }}
-              >
-                {errorMessage}
-              </p>
-            )}
-
-            <div style={{ marginBottom: "16px" }}>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "6px",
-                  color: "#cbd5e1",
-                  fontSize: "14px",
-                }}
-              >
-                Company
-              </label>
-
-              <input
-                required
-                value={company}
-                onChange={(event) => setCompany(event.target.value)}
-                placeholder="Deloitte"
-                style={{
-                  width: "100%",
-                  boxSizing: "border-box",
-                  padding: "12px",
-                  borderRadius: "10px",
-                  border: "1px solid #334155",
-                  background: "#020617",
-                  color: "white",
-                  fontSize: "15px",
-                  outline: "none",
-                }}
-              />
-            </div>
-
-            <div style={{ marginBottom: "16px" }}>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "6px",
-                  color: "#cbd5e1",
-                  fontSize: "14px",
-                }}
-              >
-                Role
-              </label>
-
-              <input
-                required
-                value={role}
-                onChange={(event) => setRole(event.target.value)}
-                placeholder="Infrastructure Engineering Intern"
-                style={{
-                  width: "100%",
-                  boxSizing: "border-box",
-                  padding: "12px",
-                  borderRadius: "10px",
-                  border: "1px solid #334155",
-                  background: "#020617",
-                  color: "white",
-                  fontSize: "15px",
-                  outline: "none",
-                }}
-              />
-            </div>
-
-            <div style={{ marginBottom: "20px" }}>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "6px",
-                  color: "#cbd5e1",
-                  fontSize: "14px",
-                }}
-              >
-                Status
-              </label>
-
-              <select
-                value={currentStatus}
-                onChange={(event) => setCurrentStatus(event.target.value)}
-                style={{
-                  width: "100%",
-                  boxSizing: "border-box",
-                  padding: "12px",
-                  borderRadius: "10px",
-                  border: "1px solid #334155",
-                  background: "#020617",
-                  color: "white",
-                  fontSize: "15px",
-                  outline: "none",
-                }}
-              >
-                {statuses.map((status) => (
-                  <option key={status}>{status}</option>
-                ))}
-              </select>
-            </div>
-
-            <button
-              type="submit"
-              style={{
-                width: "100%",
-                padding: "12px 16px",
-                borderRadius: "10px",
-                border: "none",
-                background: "white",
-                color: "#020617",
-                fontWeight: "bold",
-                fontSize: "15px",
-                cursor: "pointer",
-              }}
-            >
-              Add Application
-            </button>
-          </form>
-
-          <section>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "16px",
-              }}
-            >
-              <div>
-                <h2
-                  style={{
-                    fontSize: "26px",
-                    margin: 0,
-                  }}
-                >
-                  Applications
-                </h2>
-
-                <p
-                  style={{
-                    color: "#94a3b8",
-                    marginTop: "6px",
-                  }}
-                >
-                  {applications.length} application
-                  {applications.length === 1 ? "" : "s"} tracked
-                </p>
-              </div>
-            </div>
-
-            {applications.length === 0 ? (
-              <div
-                style={{
-                  background: "#0f172a",
-                  border: "1px dashed #334155",
-                  borderRadius: "16px",
-                  padding: "40px",
-                  textAlign: "center",
-                  color: "#94a3b8",
-                }}
-              >
-                <h3 style={{ color: "white", marginTop: 0 }}>
-                  No applications yet
-                </h3>
-                <p>Add your first application using the form on the left.</p>
-              </div>
-            ) : (
-              <div
-                style={{
-                  display: "grid",
-                  gap: "16px",
-                }}
-              >
-                {applications.map((application) => (
-                  <div
-                    key={application.id}
-                    style={{
-                      background: "#0f172a",
-                      border: "1px solid #253047",
-                      borderRadius: "16px",
-                      padding: "22px",
-                      boxShadow: "0 16px 30px rgba(0,0,0,0.2)",
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        gap: "16px",
-                        alignItems: "start",
-                      }}
-                    >
-                      <div>
-                        <h3
-                          style={{
-                            fontSize: "22px",
-                            margin: "0 0 8px 0",
-                          }}
-                        >
-                          {application.company}
-                        </h3>
-
-                        <p
-                          style={{
-                            color: "#cbd5e1",
-                            margin: "0 0 16px 0",
-                            fontSize: "16px",
-                          }}
-                        >
-                          {application.role}
-                        </p>
-                      </div>
-
-                      <button
-                        onClick={() => deleteApplication(application.id)}
-                        style={{
-                          background: "#2a0f16",
-                          color: "#fca5a5",
-                          border: "1px solid #7f1d1d",
-                          borderRadius: "8px",
-                          padding: "8px 10px",
-                          cursor: "pointer",
-                        }}
-                      >
-                        Delete
-                      </button>
-                    </div>
-
-                    <div>
-                      <label
-                        style={{
-                          display: "block",
-                          marginBottom: "6px",
-                          color: "#94a3b8",
-                          fontSize: "14px",
-                        }}
-                      >
-                        Current Status
-                      </label>
-
-                      <select
-                        value={application.current_status}
-                        onChange={(event) =>
-                          updateStatus(application.id, event.target.value)
-                        }
-                        style={{
-                          width: "260px",
-                          padding: "10px",
-                          borderRadius: "10px",
-                          border: "1px solid #334155",
-                          background: "#020617",
-                          color: "white",
-                          fontSize: "14px",
-                          outline: "none",
-                        }}
-                      >
-                        {statuses.map((status) => (
-                          <option key={status}>{status}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-        </div>
+  return <main className="min-h-screen bg-slate-950 px-4 py-8 text-slate-100 sm:px-8">
+    <div className="mx-auto max-w-7xl">
+      <header className="mb-10 flex flex-wrap items-center justify-between gap-4">
+        <div><p className="text-sm font-semibold uppercase tracking-widest text-cyan-300">FlowState</p>
+          <h1 className="mt-2 text-3xl font-bold sm:text-4xl">Application workspace</h1>
+          <p className="mt-2 text-slate-400">Keep every opportunity moving forward.</p></div>
+        <div className="flex flex-wrap items-center gap-4"><span>{user.email}</span>
+          <button disabled={busy} className="rounded-lg border border-slate-600 px-4 py-2" onClick={() => void perform(async () => {
+            await api("/auth/logout", { method: "POST" }); setUser(null); setApplications([]); setSelected(null);
+          })}>Sign out</button></div>
+      </header>
+      {error && <div role="alert" className="mb-6 rounded-lg border border-rose-400 bg-rose-950 p-4">{error}</div>}
+      <section aria-label="Application metrics" className="mb-8 grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">
+        {["Total", ...stages, "Action Required"].map(label => <div key={label} className="rounded-xl border border-slate-800 bg-slate-900 p-4">
+          <p className="text-xs text-slate-400">{label}</p><p className="mt-2 text-3xl font-semibold">{label === "Total" ? applications.length : applications.filter(a => label === "Action Required" ? a.action_required : a.current_status === label).length}</p>
+        </div>)}
       </section>
-    </main>
-  );
+      <div className="grid items-start gap-8 lg:grid-cols-[320px_1fr]">
+        <form className="space-y-4 rounded-xl border border-slate-800 bg-slate-900 p-6" onSubmit={event => {
+          event.preventDefault();
+          void perform(async () => {
+            await api(editing ? `/applications/${editing}` : "/applications", {
+              method: editing ? "PATCH" : "POST", body: JSON.stringify({ ...form, deadline: form.deadline ? new Date(form.deadline).toISOString() : null }),
+            });
+            setForm(blank); setEditing(null); await refresh();
+          });
+        }}>
+          <h2 className="text-xl font-semibold">{editing ? "Edit application" : "Add application"}</h2>
+          <label className="block">Company<input className={input} required maxLength={255} value={form.company} onChange={e => setForm({ ...form, company: e.target.value })} /></label>
+          <label className="block">Role<input className={input} required maxLength={255} value={form.role} onChange={e => setForm({ ...form, role: e.target.value })} /></label>
+          <label className="block">Recruiting stage<select className={input} value={form.current_status} onChange={e => setForm({ ...form, current_status: e.target.value })}>{stages.map(s => <option key={s}>{s}</option>)}</select></label>
+          <label className="flex gap-2"><input type="checkbox" checked={form.action_required} onChange={e => setForm({ ...form, action_required: e.target.checked })} />Action required</label>
+          <label className="block">Deadline (your local time)<input type="datetime-local" className={input} value={form.deadline} onChange={e => setForm({ ...form, deadline: e.target.value })} /></label>
+          <button className={button} disabled={busy}>{busy ? "Saving…" : editing ? "Save changes" : "Add application"}</button>
+          {editing && <button type="button" className="ml-3 underline" onClick={() => { setEditing(null); setForm(blank); }}>Cancel</button>}
+        </form>
+        <section aria-label="Applications" className="min-w-0">
+          <div className="mb-5 grid gap-3 sm:grid-cols-3">
+            <label>Search<input className={input} type="search" placeholder="Company or role" value={search} onChange={e => setSearch(e.target.value)} /></label>
+            <label>Status<select className={input} value={status} onChange={e => setStatus(e.target.value)}><option value="">All statuses</option>{[...stages, "Action Required"].map(s => <option key={s}>{s}</option>)}</select></label>
+            <label>Sort<select className={input} value={sort} onChange={e => setSort(e.target.value)}><option value="updated">Recently updated</option><option value="company">Company A–Z</option></select></label>
+          </div>
+          <p className="mb-4 text-sm text-slate-400">{filtered.length} of {applications.length} applications</p>
+          {!filtered.length && <p className="rounded-xl border border-dashed border-slate-700 p-10 text-center text-slate-400">{applications.length ? "No applications match your filters." : "Add your first application to get started."}</p>}
+          <div className="space-y-3">{filtered.map(a => <article key={a.id} className="rounded-xl border border-slate-800 bg-slate-900 p-5">
+            <div className="flex flex-wrap justify-between gap-3"><div><h2 className="text-xl font-semibold">{a.company}</h2><p className="text-slate-300">{a.role}</p></div><span className="h-fit rounded-full bg-slate-800 px-3 py-1 text-sm text-cyan-200">{a.current_status}</span></div>
+            {a.action_required && <p className="mt-3 text-amber-300">Action required{a.deadline ? ` · Due ${new Date(a.deadline).toLocaleString()}` : ""}</p>}
+            <div className="mt-4 flex flex-wrap gap-5 text-sm">
+              <button disabled={busy} className="text-cyan-300 underline" onClick={() => {
+                setEditing(a.id); setForm({ company: a.company, role: a.role, current_status: a.current_status, action_required: a.action_required, deadline: a.deadline ? new Date(new Date(a.deadline).getTime() - new Date(a.deadline).getTimezoneOffset() * 60000).toISOString().slice(0, 16) : "" });
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}>Edit</button>
+              <button disabled={busy} className="text-cyan-300 underline" onClick={() => void perform(async () => {
+                const rows = await api<History[]>(`/applications/${a.id}/history`); setHistory(rows); setSelected(a);
+              })}>View history</button>
+              <button disabled={busy} className="text-rose-300 underline" onClick={() => {
+                if (window.confirm(`Delete ${a.company} — ${a.role}? This also deletes its history.`)) void perform(async () => {
+                  await api(`/applications/${a.id}`, { method: "DELETE" }); if (selected?.id === a.id) setSelected(null); if (editing === a.id) { setEditing(null); setForm(blank); } await refresh();
+                });
+              }}>Delete</button>
+            </div>
+          </article>)}</div>
+          {selected && <section className="mt-6 rounded-xl border border-cyan-700 p-5" aria-label="Status history">
+            <div className="flex justify-between gap-4"><h2 className="text-xl font-semibold">{selected.company} · History</h2><button className="underline" onClick={() => setSelected(null)}>Close</button></div>
+            <ol className="mt-4 space-y-3">{history.map(h => <li key={h.id}><strong>{h.current_status}</strong><p className="text-sm text-slate-400">{new Date(h.created_at).toLocaleString()} · {h.source}</p></li>)}</ol>
+          </section>}
+        </section>
+      </div>
+    </div>
+  </main>;
 }

@@ -127,4 +127,3 @@ Optional push (22) is implemented/synthetically tested with live prerequisites
 pending. Last pushed implementation commit: 8414370; documentation checkpoint
 follows in git log. No implementation edits remain uncommitted. User .vscode/
 is the only unrelated untracked work. External checkpoints remain above.
-

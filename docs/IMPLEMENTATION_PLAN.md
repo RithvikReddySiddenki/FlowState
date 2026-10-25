@@ -16,7 +16,7 @@ Checklist (unchecked means acceptance criteria remain unmet):
 - [x] 7. Redis/Celery persistent sync runs, retries, locks, recovery
 - [x] 8. Dockerfiles and complete local Compose stack
 - [x] 9. Separate development/production, migrations, backups
-- [ ] 10. Simple EC2 Terraform, formatting, validation, plan
+- [x] 10. Simple EC2 Terraform, formatting, validation, plan
 - [ ] 11. Repeatable EC2 deployment and recovery (approval before provisioning)
 - [ ] 12. Nginx routing, TLS, renewal (domain/certificates required)
 - [x] 13. GitHub Actions checks, optional protected deployment

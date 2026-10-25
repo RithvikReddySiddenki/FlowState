@@ -185,7 +185,7 @@ flowchart LR
 flowchart LR
   Terraform[Reviewed Terraform plan] --> Approval[Explicit resource approval]
   Approval --> EC2[EC2 / encrypted disk]
-  Admin[Restricted SSH /32] --> EC2
+  Admin[Approved SSM session] --> EC2
   EC2 --> Compose[Docker Compose on one host]
   Compose --> Private[PostgreSQL / Redis: internal ports]
   Domain[Approved domain and certificate] -. Publication approval .-> HTTPS[Nginx HTTPS]
@@ -193,7 +193,7 @@ flowchart LR
 ```
 
 [Initial EC2 Terraform](infra/terraform/README.md) defaults public web ingress
-off, requires a specific SSH administrator address and uses IMDSv2. No cloud
+off, defaults to SSM administration without inbound SSH, and uses IMDSv2. No cloud
 resources have been created. [Deployment runbook](docs/DEPLOYMENT.md) covers
 host preparation, secure configuration, reviewed releases, backups, migrations,
 health checks, Nginx/TLS and recovery. No production automatic deployment is
@@ -211,7 +211,7 @@ enabled. AWS compute, storage and IPs can incur charges; apply requires approval
   restricted workloads/probes and Traefik ingress passed actual local workflows.
 - [Managed AWS](infra/terraform-managed/README.md): reusable two-AZ network,
   private encrypted Multi-AZ RDS/Redis, ALB, SSM, least-privilege runtime secret and
-  CloudWatch permissions. Terraform validates; no account plan/apply performed.
+  CloudWatch permissions. Real Ohio account plans succeeded; no apply performed. See the [plan/cost review](docs/AWS_PLAN_REVIEW.md).
 - [Private monitoring](infra/monitoring/README.md): actual Prometheus scrapes,
   dependency gauges and provisioned Grafana dashboard verified with synthetic data.
 - [Optional Gmail push](docs/GMAIL_PUSH.md): authenticated Pub/Sub receiver,

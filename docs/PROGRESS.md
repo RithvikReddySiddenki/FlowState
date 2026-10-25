@@ -56,7 +56,7 @@ User-created .vscode/ remains untracked and MUST NOT be modified/staged.
 | 7 | Workers | COMPLETE | Real queue success/failure/order/dedupe/recovery | 03ff039 |
 | 8 | Docker | COMPLETE | Dev/prod-shaped health/proxy/persistent volumes | 03ff039 |
 | 9 | Environments | COMPLETE | Overrides, secure config, backup/migration tooling | 03ff039 |
-| 10 | Simple Terraform | IN PROGRESS | fmt/init/validate pass; authenticated account plan pending | 03ff039 |
+| 10 | Simple Terraform | COMPLETE | Real Ohio account plan, fmt/init/validate and safety tests pass; apply not authorized | current planning checkpoint |
 | 11 | EC2 deployment | IMPLEMENTED - UNVERIFIED | Scripts syntax pass; actual host deployment pending | 03ff039 |
 | 12 | Nginx/TLS | IN PROGRESS | Actual proxy/DNS recovery pass; domain/cert/renewal pending | 03ff039 |
 | 13 | CI/CD | COMPLETE | All seven remote checks pass; no auto deployment | aca85a0, 8414370 |
@@ -107,17 +107,18 @@ left unchanged; restrict before calling that manual setup hardened.
 
 - Install/approve a supported Vagrant/provider and run the lab twice to check health
   and idempotence; approximately6GB VM RAM plus host overhead is needed.
-- Configure AWS identity/region and encrypted state backend locally, review a plan
-  and cost estimate, then explicitly approve resources/Packer/deployment.
+- AWS browser identity and Ohio account plans are verified. Review the plan/cost
+  report, deployment permissions and protected backend, then approve specific
+  resources/Packer/deployment separately.
 - Supply an approved domain/certificate; verify public HTTPS/renewal and real OAuth
   callbacks before publishing. No DNS purchases/changes or main merge authorized.
 - Optional Pub/Sub setup and live push verification require public HTTPS and Google
   project IAM; production restricted-scope verification is separately pending.
   Follow MANUAL_STEPS.md, GMAIL_PUSH.md and GOOGLE_VERIFICATION.md.
 
-Next exact external step: choose an AWS account/region and configure SSO locally,
-then review an authenticated Terraform plan and cost estimate before asking for
-resource approval. Independently install the Vagrant/provider to verify VM roles.
+Next exact external step: review the authenticated Ohio plans and cost estimate
+in AWS_PLAN_REVIEW.md; choose an architecture and obtain administrator-reviewed
+deployment/operator permissions and protected state before resource approval. Independently install the Vagrant/provider to verify VM roles.
 Public TLS/PubSub need domain/project setup and separate publication approval.
 Draft PR #1 is prepared; do not merge automatically. No production deployment,
 paid resource provisioning, public exposure or main merge has occurred.
@@ -230,3 +231,57 @@ at handoff: CLI and AWS configuration are still absent. No real plan, apply or
 paid build occurred/was approved. User .vscode/ remains unrelated/untracked;
 native app data and running services were retained. Remaining Vagrant/provider,
 public domain/ACME and Pub/Sub checks also require their documented prerequisites.
+
+
+## Authenticated AWS planning (2026-10-25)
+
+Owner supplied flowstate-dev, us-east-2, IAM user flowstate-developer and browser
+login with ViewOnlyAccess/SignInLocalDevelopmentAccess. CLI2.38.5 and STS confirm
+that exact IAM user, not root. Direct policy names also include IAMUserChangePassword;
+no inline policies or groups. This is browser aws login, not Identity Center SSO.
+Do not request SSO setup again or modify this working profile.
+
+Both Terraform roots passed init -backend=false, fmt, validate and ten synthetic
+plan tests. Real authenticated account plans succeeded: simple10 creates and
+managed-reference30 creates, no updates/deletes, Ohio. Private binaries/logs/plan
+summaries stay in ignored .tools/aws-plans under current-user-only ACLs. Managed
+uses a non-secret planning placeholder; NEVER APPLY IT without protected state,
+real secret delivery and a regenerated/reviewed plan. See AWS_PLAN_REVIEW.md for
+hashes, public AMI IDs, proposed resources, costs and exact deployment gates.
+
+Planning/security changes: simple now defaults to SSM/no ingress/no SSH key,
+with a proposed EC2 SSM role/profile/attachment and opt-in restricted SSH. Both
+roots explicitly set empty ingress when disabled. EC2 T3 CPU credits are standard
+to avoid surplus fees (sustained load can throttle). User data ensures SSM agent
+availability. None of these definitions were applied or changed AWS IAM.
+
+Pricing GetProducts was denied; official public Ohio catalogs supplied SKU/rate/
+publication-date data. Added a public snapshot and Decimal-based offline estimator:
+simple21.23USD provisioned baseline/23.63USD with example usage; managed97.08USD
+baseline/108.05USD example usage,730 hours, no tax/credits. RDS Multi-AZ is counted
+once at its paired rate; two Redis nodes and minimum ALB IPv4 addresses are
+counted. Costs are estimates, not caps; RDS CPU credits/growth and other variable
+items are documented. No paid billing API, budget, resource or policy was created.
+
+Automatic approval review rejected passing full real plans to the downloaded IAM
+analyzer. Resolved safely: reviewed public parser/telemetry documentation, removed
+all planned attribute values/resource names from inputs, used a synthetic account
+and disabled telemetry. Analysis succeeded on types/actions only. Review-only
+101/159-action baseline outputs are in infra/iam, clearly marked overbroad and
+not attach-ready; account identifiers/credentials were never supplied to analyzer.
+Do not treat these as least-privilege or complete implicit-service-role coverage.
+
+Missing optional reads: pricing:GetProducts, iam:SimulatePrincipalPolicy,
+iam:GetRole and service-quotas:GetServiceQuota. Both actual plans work without
+them. Deployment still requires administrator-reviewed EC2/IAM and (if chosen)
+managed-service write permissions, scoped PassRole and operator SSM access.
+Service-linked-role existence could not be inspected. No IAM permissions were
+modified and no create/update/delete API, apply or destroy was executed.
+
+Verification so far:54 SQLite tests (including three deterministic cost tests),
+Ruff, Terraform format/validate and ten mock-plan tests pass; real read-only
+plans pass. Frontend unchanged from the prior51-test/12-browser/7-job-green
+checkpoint. Current work: complete final checks, commit/push and inspect CI.
+Next user decision: choose simple or managed/cost envelope, have an administrator
+review deployment/state/operator permissions, then explicitly approve a fresh
+specific plan before any resource creation. Never merge main automatically.

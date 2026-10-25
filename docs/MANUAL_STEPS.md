@@ -74,3 +74,16 @@ Share only the resulting profile name and intended deployment region. Never
 paste credentials or browser/device codes. Planning can resume after identity,
 inputs and state protection are verified; applying still requires explicit plan
 and cost approval. No cloud resources were created by integration verification.
+
+
+## AWS browser-login verification (2026-10-25)
+
+AWS CLI2.38.5 browser login now works with flowstate-dev in us-east-2. STS verified
+the IAM user flowstate-developer, not root. This is aws login authentication,
+not an IAM Identity Center SSO profile; no SSO portal setup is required for this
+working profile. Do not overwrite it or create access keys. Both Terraform
+configurations initialized/validated and real account-specific read-only plans
+succeeded. See AWS_PLAN_REVIEW.md for costs, exact proposed resources and gates.
+View-only permissions are sufficient for these plans, but not deployment/session
+administration. No IAM changes were made; an administrator must review any
+additional role/permissions after the owner selects and approves a plan.

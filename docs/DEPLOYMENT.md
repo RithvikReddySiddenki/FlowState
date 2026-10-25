@@ -2,7 +2,8 @@
 
 1. Verify local core flows, CI, backups and migrations. Review the Terraform plan
    and costs. Obtain explicit approval before apply, public exposure or paid work.
-2. Provision the reviewed host only after approval. SSH from the approved /32.
+2. Provision the reviewed host only after approval. Default administration uses
+   SSM with approved operator permissions; SSH is a separate opt-in restricted /32.
    For Ubuntu 24.04, review then run scripts/bootstrap-ubuntu.sh --approved as
    root. The script installs Docker packages, not application secrets.
 3. Select a deployment user. Clone the repository to /opt/flowstate and check out
